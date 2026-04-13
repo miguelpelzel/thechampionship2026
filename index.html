@@ -209,12 +209,16 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
   </header>
   <div id="cup-nav-wrap"><div class="cup-nav" id="cup-nav"></div></div>
   <div class="main" id="main"></div>
-  <nav class="bottom-nav" id="nav-e1">
-    <button class="bn-item active" id="bn-draws"   onclick="navView('draws')">  <span class="bn-icon">🏆</span><span class="bn-label">Cuadros</span></button>
-    <button class="bn-item"        id="bn-players" onclick="navView('players')"><span class="bn-icon">👤</span><span class="bn-label">Jugadores</span></button>
-    <button class="bn-item"        id="bn-groups"  onclick="navView('groups')"> <span class="bn-icon">📋</span><span class="bn-label">Grupos</span></button>
-    <button class="bn-item"        id="bn-history" onclick="navView('history')"><span class="bn-icon">📅</span><span class="bn-label">Historial</span></button>
-    <button class="bn-item"        id="bn-h2h"     onclick="navView('h2h')">    <span class="bn-icon">⚔️</span><span class="bn-label">H2H</span></button>
+  <nav class="bottom-nav" id="nav-home" style="display:none">
+    <button class="bn-item" id="bn-home-main" onclick="navHome('main')"><span class="bn-icon">🏠</span><span class="bn-label">Etapas</span></button>
+    <button class="bn-item" id="bn-home-players" onclick="navHome('players')"><span class="bn-icon">👤</span><span class="bn-label">Jugadores</span></button>
+    <button class="bn-item" id="bn-home-history" onclick="navHome('history')"><span class="bn-icon">📅</span><span class="bn-label">Historial</span></button>
+    <button class="bn-item" id="bn-home-h2h"     onclick="navHome('h2h')">    <span class="bn-icon">⚔️</span><span class="bn-label">H2H</span></button>
+  </nav>
+  <nav class="bottom-nav" id="nav-e1" style="display:none">
+    <button class="bn-item active" id="bn-draws"  onclick="navView('draws')"> <span class="bn-icon">🏆</span><span class="bn-label">Cuadros</span></button>
+    <button class="bn-item"        id="bn-groups" onclick="navView('groups')"><span class="bn-icon">📋</span><span class="bn-label">Grupos</span></button>
+    <button class="bn-item"        id="bn-back-e1" onclick="goHome()">        <span class="bn-icon">🏠</span><span class="bn-label">Inicio</span></button>
   </nav>
   <nav class="bottom-nav" id="nav-e2" style="display:none">
     <button class="bn-item active" id="e2bn-grupos"     onclick="e2NavView('grupos')">    <span class="bn-icon">👥</span><span class="bn-label">Grupos</span></button>
@@ -287,7 +291,7 @@ function setBoxesHtml(parsed, playerIdx) {
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
+function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
 
 function setCup(cup) { currentCup = cup; currentRound = 'all'; editingId = null; renderCupNav(); renderMain(); }
 function setRound(r) { currentRound = r; editingId = null; renderMain(); }
@@ -925,6 +929,36 @@ function initE2State() {
   }
 }
 
+function navHome(tab) {
+  // Show home nav, hide others
+  document.getElementById('nav-home').style.display = '';
+  document.getElementById('nav-e1').style.display = 'none';
+  document.getElementById('nav-e2').style.display = 'none';
+  document.getElementById('cup-nav-wrap').style.display = 'none';
+  // Update active tab
+  document.querySelectorAll('#nav-home .bn-item').forEach(el => el.classList.remove('active'));
+  const btn = document.getElementById('bn-home-' + tab);
+  if (btn) btn.classList.add('active');
+  // Render the right view
+  if (tab === 'main') {
+    view = 'home';
+    renderMain();
+  } else if (tab === 'players') {
+    view = 'players';
+    selectedPlayer = null;
+    playerSearch = '';
+    renderMain();
+  } else if (tab === 'history') {
+    view = 'history';
+    histFilter = {year:'all', etapa:'all', fase:'all', search:''};
+    renderMain();
+  } else if (tab === 'h2h') {
+    view = 'h2h';
+    h2hP1 = ''; h2hP2 = ''; h2hDropdown = null;
+    renderMain();
+  }
+}
+
 function e2NavView(tab) {
   e2View = tab;
   document.querySelectorAll('#nav-e2 .bn-item').forEach(el => el.classList.remove('active'));
@@ -935,6 +969,7 @@ function e2NavView(tab) {
 
 function openStage(id) {
   if (id === 1) {
+    document.getElementById('nav-home').style.display = 'none';
     document.getElementById('nav-e1').style.display = '';
     document.getElementById('nav-e2').style.display = 'none';
     document.getElementById('cup-nav-wrap').style.display = '';
@@ -943,6 +978,7 @@ function openStage(id) {
     document.getElementById('bn-draws').classList.add('active');
     renderCupNav(); renderMain();
   } else if (id === 2) {
+    document.getElementById('nav-home').style.display = 'none';
     document.getElementById('nav-e1').style.display = 'none';
     document.getElementById('nav-e2').style.display = '';
     document.getElementById('cup-nav-wrap').style.display = 'none';
@@ -953,9 +989,12 @@ function openStage(id) {
 }
 
 function goHome() {
+  document.getElementById('nav-home').style.display = '';
   document.getElementById('nav-e1').style.display = 'none';
   document.getElementById('nav-e2').style.display = 'none';
   document.getElementById('cup-nav-wrap').style.display = 'none';
+  document.querySelectorAll('#nav-home .bn-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('bn-home-main').classList.add('active');
   view = 'home'; renderMain();
 }
 
@@ -1174,8 +1213,11 @@ function saveE2Score(id, cat, grp) {
 for (const key of Object.keys(CUP_STATE)) {
   propagateAllTBD(CUP_STATE[key].matches);
 }
-document.querySelector('.bottom-nav').style.display='none';
+document.getElementById('nav-home').style.display='';
+document.getElementById('nav-e1').style.display='none';
+document.getElementById('nav-e2').style.display='none';
 document.getElementById('cup-nav-wrap').style.display='none';
+document.getElementById('bn-home-main').classList.add('active');
 renderMain();
 </script>
 </body>
