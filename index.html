@@ -1149,9 +1149,9 @@ function saveE2Score(id, cat, grp) {
 
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-// Forzar actualización - versión 29
+// Forzar actualización - versión 32
 (async function() {
-  const VERSION = 'v29';
+  const VERSION = 'v32';
   if (localStorage.getItem('appVersion') !== VERSION) {
     localStorage.setItem('appVersion', VERSION);
     if ('serviceWorker' in navigator) {
@@ -1163,6 +1163,12 @@ function saveE2Score(id, cat, grp) {
       await Promise.all(keys.map(k => caches.delete(k)));
     }
     window.location.reload(true);
+  }
+  // Registrar SW con scope correcto para GitHub Pages
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/thechampionship2026/sw.js', {
+      scope: '/thechampionship2026/'
+    }).catch(() => {});
   }
 })();
 for (const key of Object.keys(CUP_STATE)) {

@@ -3,24 +3,72 @@
   "short_name": "Championship",
   "description": "Resultados en tiempo real · The Championship 2026",
   "start_url": "/thechampionship2026/",
-  "scope": "/thechampionship2026/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0066cc",
   "orientation": "portrait-primary",
-  "categories": ["sports"],
+  "categories": [
+    "sports"
+  ],
   "lang": "es",
   "icons": [
-    { "src": "icon-57.png",  "sizes": "57x57",   "type": "image/png" },
-    { "src": "icon-60.png",  "sizes": "60x60",   "type": "image/png" },
-    { "src": "icon-72.png",  "sizes": "72x72",   "type": "image/png" },
-    { "src": "icon-76.png",  "sizes": "76x76",   "type": "image/png" },
-    { "src": "icon-114.png", "sizes": "114x114", "type": "image/png" },
-    { "src": "icon-120.png", "sizes": "120x60",  "type": "image/png" },
-    { "src": "icon-144.png", "sizes": "144x144", "type": "image/png" },
-    { "src": "icon-152.png", "sizes": "152x152", "type": "image/png" },
-    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
-  ]
+    {
+      "src": "icon-57.png",
+      "sizes": "57x57",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-60.png",
+      "sizes": "60x60",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-76.png",
+      "sizes": "76x76",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-114.png",
+      "sizes": "114x114",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-120.png",
+      "sizes": "120x120",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "scope": "/thechampionship2026/"
 }
