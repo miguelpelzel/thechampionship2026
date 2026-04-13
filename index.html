@@ -291,7 +291,7 @@ function setBoxesHtml(parsed, playerIdx) {
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
+function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
 
 function setCup(cup) { currentCup = cup; currentRound = 'all'; editingId = null; renderCupNav(); renderMain(); }
 function setRound(r) { currentRound = r; editingId = null; renderMain(); }
@@ -538,7 +538,6 @@ function renderHome(){
       ${s.clickable?'<div class="stage-arrow">›</div>':''}
     </div>`;
   }).join('');
-  document.querySelector('.bottom-nav').style.display='none';
   document.getElementById('main').innerHTML=`
     <div class="home-screen">
       <div class="home-splash">
@@ -1188,35 +1187,13 @@ function saveE2Score(id, cat, grp) {
 
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-// Forzar actualización - versión 32
-(async function() {
-  const VERSION = 'v32';
-  if (localStorage.getItem('appVersion') !== VERSION) {
-    localStorage.setItem('appVersion', VERSION);
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r => r.unregister()));
-    }
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-    window.location.reload(true);
-  }
-  // Registrar SW con scope correcto para GitHub Pages
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/thechampionship2026/sw.js', {
-      scope: '/thechampionship2026/'
-    }).catch(() => {});
-  }
-})();
 for (const key of Object.keys(CUP_STATE)) {
   propagateAllTBD(CUP_STATE[key].matches);
 }
-document.getElementById('nav-home').style.display='';
-document.getElementById('nav-e1').style.display='none';
-document.getElementById('nav-e2').style.display='none';
-document.getElementById('cup-nav-wrap').style.display='none';
+document.getElementById('nav-home').style.display = '';
+document.getElementById('nav-e1').style.display = 'none';
+document.getElementById('nav-e2').style.display = 'none';
+document.getElementById('cup-nav-wrap').style.display = 'none';
 document.getElementById('bn-home-main').classList.add('active');
 renderMain();
 </script>
