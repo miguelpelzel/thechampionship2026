@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Actualizando...</title>
+  <style>
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f0f4f8; }
+    .box { background: white; border-radius: 16px; padding: 2rem; text-align: center; max-width: 320px; box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+    h2 { color: #1a56a0; margin: 0 0 1rem; }
+    p { color: #666; margin: 0 0 1.5rem; line-height: 1.5; }
+    .btn { background: #1a56a0; color: white; border: none; padding: 12px 28px; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; width: 100%; }
+    .status { margin-top: 1rem; font-size: .8rem; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>🔄 Actualizar App</h2>
+    <p>Esto elimina el caché viejo y carga la versión más nueva.</p>
+    <button class="btn" onclick="doUpdate()">Actualizar ahora</button>
+    <div class="status" id="status"></div>
+  </div>
+  <script>
+    async function doUpdate() {
+      const status = document.getElementById('status');
+      status.textContent = 'Eliminando caché...';
+      try {
+        // Unregister all service workers
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.unregister();
+            status.textContent = 'Service worker eliminado...';
+          }
+        }
+        // Clear all caches
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+          status.textContent = 'Caché limpio...';
+        }
+        status.textContent = '✓ Listo. Redirigiendo...';
+        setTimeout(() => {
+          window.location.href = '/?v=' + Date.now();
+        }, 800);
+      } catch(e) {
+        status.textContent = 'Error: ' + e.message;
+      }
+    }
+    // Auto-run on load
+    window.onload = doUpdate;
+  </script>
+</body>
+</html>
