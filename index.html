@@ -523,7 +523,7 @@ function renderHome(){
     const pillTxt=s.status==='current'?'● En curso':'Próximamente';
     const aCls=s.status==='current'?'s-active':'s-locked';
     const onclick=s.clickable?`onclick="openStage(${s.id})"`:'' ;
-    const pctTag=s.status==='current'?`<div class="stage-meta-item">📊 ${pct}% playoffs</div>`:'';
+    const pctTag=s.id===1?`<div class="stage-meta-item">📊 ${pct}% playoffs</div>`:'';
     return `<div class="stage-card ${aCls}" ${onclick} style="animation:stageFadeIn .4s ease ${.1+i*.09}s both">
       <div class="stage-bar ${barCls}"></div>
       <div class="stage-body">
@@ -751,6 +751,24 @@ function renderPlayerDetail(name){
   const hKeys=new Set((d?.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
   const allPO26=[...(d?.playoff_matches||[]),...live2026.filter(m=>!hKeys.has([name,m.opp,m.round,m.cup].join('|')))];
   allPO26.forEach(m=>{const fase=m.cup.replace('Cat A - ','Cat. A – ').replace('Cat B - ','Cat. B – ');allMatches.push({year:2026,etapa:1,fase,instancia:m.round,p1:name,p2:m.opp,score:m.score,winner:m.won?name:m.opp});});
+  // Etapa 2 matches from live state
+  if (window.E2_STATE) {
+    ['A','B'].forEach(cat => {
+      (window.E2_STATE[cat]||[]).forEach(g => {
+        g.matches.forEach(m => {
+          if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
+          allMatches.push({
+            year: 2026, etapa: 2,
+            fase: 'Fase de Grupos E2',
+            instancia: 'Grupo ' + g.group + ' · Cat. ' + cat,
+            p1: m.p1, p2: m.p2,
+            score: m.score, winner: m.winner
+          });
+        });
+      });
+    });
+  }
+  // Future etapas (3, 4) can be added here similarly
   allMatches.sort((a,b)=>b.year-a.year||b.etapa-a.etapa);
   const tw=allMatches.filter(m=>m.winner===name).length;
   const tl=allMatches.filter(m=>m.winner&&m.winner!==name).length;
