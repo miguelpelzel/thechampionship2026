@@ -1118,7 +1118,7 @@ function renderE2PartidosCard(g) {
 // ── POSICIONES view ───────────────────────────────────────────────────────────
 function renderE2PosicionesCard(g) {
   const stats = {};
-  g.players.forEach(p => { stats[p] = {pj:0,pg:0,pp:0,pts:0,sg:0,sp:0}; });
+  g.players.forEach(p => { stats[p] = {pj:0,pg:0,pp:0,pts:0,gg:0,gp:0}; });
   g.matches.forEach(m => {
     if (!m.done || !m.winner) return;
     const loser = m.winner === m.p1 ? m.p2 : m.p1;
@@ -1126,50 +1126,55 @@ function renderE2PosicionesCard(g) {
     const pts = isSTB ? 3 : 4;
     stats[m.winner].pj++; stats[m.winner].pg++; stats[m.winner].pts += pts;
     stats[loser].pj++;    stats[loser].pp++;
+    // Dif games: solo los 2 primeros sets, no el super tiebreak
     if (m.score && m.score !== 'WO') {
       const parts = m.score.trim().split(/\s+/);
-      parts.slice(0,2).forEach(s => {
+      const setsOnly = isSTB ? parts.slice(0, 2) : parts;
+      setsOnly.forEach(s => {
         const mm = s.match(/^(\d+)-(\d+)$/);
         if (!mm) return;
-        const a=parseInt(mm[1]), b=parseInt(mm[2]);
-        stats[m.p1].sg += a>b?1:0; stats[m.p1].sp += a<b?1:0;
-        stats[m.p2].sg += b>a?1:0; stats[m.p2].sp += b<a?1:0;
+        const a = parseInt(mm[1]), b = parseInt(mm[2]);
+        stats[m.p1].gg += a; stats[m.p1].gp += b;
+        stats[m.p2].gg += b; stats[m.p2].gp += a;
       });
     }
   });
-  const sorted = g.players.slice().sort((a,b) =>
+  const sorted = g.players.slice().sort((a, b) =>
     stats[b].pts - stats[a].pts ||
-    (stats[b].pg-stats[b].pp) - (stats[a].pg-stats[a].pp) ||
-    (stats[b].sg-stats[b].sp) - (stats[a].sg-stats[a].sp)
+    (stats[b].gg - stats[b].gp) - (stats[a].gg - stats[a].gp)
   );
-  const rows = sorted.map((p,i) => {
+  const rows = sorted.map((p, i) => {
     const s = stats[p];
-    const isFirst = i===0 && s.pts>0;
-    const bg = isFirst ? 'var(--blue-light)' : (i%2===0?'#fafbfc':'white');
-    return `<div style="display:grid;grid-template-columns:24px 1fr 30px 40px 36px 36px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center">
+    const isFirst = i === 0 && s.pts > 0;
+    const dif = s.gg - s.gp;
+    const difStr = dif > 0 ? '+' + dif : String(dif);
+    const difColor = dif > 0 ? 'var(--green)' : dif < 0 ? '#e53e3e' : 'var(--muted)';
+    const bg = isFirst ? 'var(--blue-light)' : (i % 2 === 0 ? '#fafbfc' : 'white');
+    return `<div style="display:grid;grid-template-columns:24px 1fr 30px 40px 44px 36px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center">
       <div style="font-size:.7rem;font-weight:700;color:var(--muted)">${i+1}</div>
-      <div style="font-size:.82rem;font-weight:${isFirst?700:400};cursor:pointer" onclick="openPlayer('${p.replace(/'/g,"\\'")}')">${p}</div>
+      <div style="font-size:.82rem;font-weight:${isFirst?700:400};cursor:pointer" onclick="openPlayer('${p.replace(/'/g,"\'")}')">${p}</div>
       <div style="font-size:.72rem;color:var(--muted);text-align:center">${s.pj}</div>
       <div style="font-size:.72rem;color:var(--muted);text-align:center">${s.pg}-${s.pp}</div>
-      <div style="font-size:.72rem;color:var(--muted);text-align:center">${s.sg}-${s.sp}</div>
+      <div style="font-size:.72rem;font-weight:${dif!==0?600:400};color:${difColor};text-align:center">${s.pj>0?difStr:'-'}</div>
       <div style="font-size:.8rem;font-weight:700;color:${isFirst?'var(--blue)':'var(--text)'};text-align:center">${s.pts}</div>
     </div>`;
   }).join('');
   return `<div class="phase-section">
     <div class="phase-title"><span>Grupo ${g.group}</span></div>
     <div style="background:var(--white);border-radius:8px;overflow:hidden;border:1px solid var(--border)">
-      <div style="display:grid;grid-template-columns:24px 1fr 30px 40px 36px 36px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px">
+      <div style="display:grid;grid-template-columns:24px 1fr 30px 40px 44px 36px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px">
         <div style="font-size:.6rem;font-weight:700;color:var(--muted)">#</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted)">JUGADOR</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">PJ</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">V-D</div>
-        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">Sets</div>
+        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">Dif G</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--blue);text-align:center">Pts</div>
       </div>
       ${rows}
     </div>
   </div>`;
 }
+
 
 // ── EDIT / SAVE ───────────────────────────────────────────────────────────────
 function startE2Edit(id, grp) {
