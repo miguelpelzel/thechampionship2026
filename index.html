@@ -201,10 +201,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
         <div class="logo-icon">TC</div>
         <div class="logo-text">
           <div class="logo-title">The Championship</div>
-          <div class="logo-sub">2026 · Etapa 1 · Playoffs</div>
         </div>
       </div>
-      <div class="header-badge">En Curso</div>
     </div>
   </header>
   <div id="cup-nav-wrap"><div class="cup-nav" id="cup-nav"></div></div>
@@ -512,7 +510,7 @@ function renderHome(){
   Object.values(CUP_STATE).forEach(cup=>cup.matches.forEach(m=>{if(!isBYE(m.score)){total++;if(m.done)done++;}}));
   const pct=total>0?Math.round(done/total*100):0;
   const stages=[
-    {id:1,name:'Etapa 1',dates:'Marzo – Abril 2026',desc:'Fase de Grupos + Playoffs · Copa Oro y Copa Plata',players:PLAYERS_LIST.length,status:'current',clickable:true},
+    {id:1,name:'Etapa 1',dates:'Marzo – Abril 2026',desc:'Fase de Grupos + Playoffs · Copa Oro y Copa Plata',players:101,status:'current',clickable:true},
     {id:2,name:'Etapa 2',dates:'Mayo – Junio 2026',desc:'Fase de Grupos · Cat. A (18 grupos) · Cat. B (11 grupos)',players:115,status:'current',clickable:true},
     {id:3,name:'Etapa 3',dates:'Agosto – Septiembre 2026',desc:'Próximamente',status:'soon',clickable:false},
     {id:4,name:'Etapa 4',dates:'Octubre – Noviembre 2026',desc:'Próximamente',status:'soon',clickable:false},
