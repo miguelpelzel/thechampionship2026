@@ -190,7 +190,34 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     const fbApp=initializeApp(firebaseConfig);const db=getFirestore(fbApp);
     window.fbSaveMatch=async function(cupKey,matchId,score,winner){try{await setDoc(doc(db,'matches',cupKey+'__'+matchId),{cupKey,matchId,score,winner,updatedAt:Date.now()});}catch(e){console.error(e);}};
     window.fbListen=function(){onSnapshot(collection(db,'matches'),snapshot=>{let changed=false;snapshot.docChanges().forEach(change=>{if(change.type==='added'||change.type==='modified'){const d=change.doc.data();const cup=CUP_STATE[d.cupKey];if(!cup)return;const m=cup.matches.find(x=>x.id===d.matchId);if(!m)return;if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){m.score=d.score;m.done=true;m.winner=d.winner;changed=true;}}});if(changed){for(const key of Object.keys(CUP_STATE))propagateAllTBD(CUP_STATE[key].matches);renderMain();}});};
-    window.addEventListener('load',()=>{if(typeof CUP_STATE!=='undefined')window.fbListen();else setTimeout(()=>window.fbListen(),500);});
+    window.fbListenE2=function(){
+      if(!window.E2_STATE) window.E2_STATE=JSON.parse(JSON.stringify(E2_GROUPS));
+      onSnapshot(collection(db,'matches'),snapshot=>{
+        let changed=false;
+        snapshot.docChanges().forEach(change=>{
+          if(change.type==='added'||change.type==='modified'){
+            const d=change.doc.data();
+            const catMatch=d.cupKey&&d.cupKey.match(/^e2_([AB])(\d+)$/);
+            if(!catMatch)return;
+            const cat=catMatch[1],grp=parseInt(catMatch[2]);
+            const g=window.E2_STATE[cat]&&window.E2_STATE[cat].find(x=>x.group===grp);
+            if(!g)return;
+            const m=g.matches.find(x=>x.id===d.matchId);
+            if(!m)return;
+            if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){
+              m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+            }
+          }
+        });
+        if(changed&&view==='etapa2')renderEtapa2();
+      });
+    };
+    window.addEventListener('load',()=>{
+      if(typeof CUP_STATE!=='undefined')window.fbListen();
+      else setTimeout(()=>window.fbListen(),500);
+      if(typeof E2_GROUPS!=='undefined')window.fbListenE2();
+      else setTimeout(()=>window.fbListenE2(),500);
+    });
   </script>
 </head>
 <body style="background:#ffffff">
