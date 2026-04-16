@@ -221,6 +221,10 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
   </script>
 </head>
 <body style="background:#ffffff">
+<div id="app-loading" style="position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px">
+  <img src="logo.png" style="width:120px;height:120px;object-fit:contain;border-radius:12px" onerror="this.style.display='none'">
+  <div style="font-family:Arial,sans-serif;font-size:.85rem;color:#888">Cargando...</div>
+</div>
 <div class="app">
   <header class="header">
     <div class="header-inner">
@@ -405,7 +409,10 @@ function renderCupNav() {
 }
 
 // ── RENDER MAIN ───────────────────────────────────────────────────────────────
-function renderMain(){if(view==='home')renderHome();else if(view==='draws')renderDraws();else if(view==='players')renderPlayers();else if(view==='groups')renderGroups();else if(view==='history')renderHistory();else if(view==='h2h')renderH2H();const existing=document.getElementById('adminBadge');if(existing)existing.remove();if(isAdmin){const b=document.createElement('div');b.id='adminBadge';b.className='admin-badge';b.textContent='⚙ Admin · Tocá para salir';b.onclick=()=>{isAdmin=false;renderMain();showToast('Modo admin desactivado');};document.body.appendChild(b);}}
+function renderMain(){
+  const loader=document.getElementById('app-loading');
+  if(loader)loader.style.display='none';
+  if(view==='home')renderHome();else if(view==='draws')renderDraws();else if(view==='players')renderPlayers();else if(view==='groups')renderGroups();else if(view==='history')renderHistory();else if(view==='h2h')renderH2H();const existing=document.getElementById('adminBadge');if(existing)existing.remove();if(isAdmin){const b=document.createElement('div');b.id='adminBadge';b.className='admin-badge';b.textContent='⚙ Admin · Tocá para salir';b.onclick=()=>{isAdmin=false;renderMain();showToast('Modo admin desactivado');};document.body.appendChild(b);}}
 
 // ── DRAWS ─────────────────────────────────────────────────────────────────────
 function renderDraws() {
@@ -600,6 +607,19 @@ function getAllMatches2026(){
       out.push({year:2026,etapa:1,fase:CKM[key]||'Copa',instancia:m.round,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner});
     });
   });
+  // Etapa 2 matches
+  if(window.E2_STATE){
+    ['A','B'].forEach(cat=>{
+      (window.E2_STATE[cat]||[]).forEach(g=>{
+        g.matches.forEach(m=>{
+          if(!m.done||!m.score)return;
+          const k=[m.p1,m.p2,'E2',g.group,cat].join('|');
+          if(seen.has(k))return; seen.add(k);
+          out.push({year:2026,etapa:2,fase:'Fase de Grupos E2',instancia:'Grupo '+g.group+' · Cat. '+cat,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner});
+        });
+      });
+    });
+  }
   return out;
 }
 function renderHistory(){
@@ -887,6 +907,19 @@ function getH2HMatches(a,b){
       }
     });
   });
+  // Etapa 2
+  if(window.E2_STATE){
+    ['A','B'].forEach(cat=>{
+      (window.E2_STATE[cat]||[]).forEach(g=>{
+        g.matches.forEach(m=>{
+          if(!m.done||!m.score)return;
+          if((m.p1===a&&m.p2===b)||(m.p1===b&&m.p2===a)){
+            matches.push({year:2026,etapa:2,fase:'Fase de Grupos E2',instancia:'Grupo '+g.group+' · Cat. '+cat,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner,source:'e2'});
+          }
+        });
+      });
+    });
+  }
   matches.sort((a,b)=>b.year-a.year||b.etapa-a.etapa);
   return matches;
 }
