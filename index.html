@@ -1398,8 +1398,8 @@ function renderRanking() {
         });
         if(!bestWon) return;
         const nextIdx = ORDER.indexOf(bestWon)+1;
-        label = ORDER[nextIdx]||'Campeón';
-        if(label==='Final') label='Semis';
+        const nextRound = ORDER[nextIdx];
+        label = nextRound==='Final' ? 'Finalista' : (nextRound||'Campeón');
       }
       allMatches.forEach(m => { if(m.round==='Final'&&m.done&&m.winner===name) label='Campeón'; });
       // Keep best across cups
@@ -1432,8 +1432,9 @@ function renderRanking() {
         allMatches.forEach(m=>{if(!m.done||m.winner!==name)return; if(ORDER.indexOf(m.round)>ORDER.indexOf(bestWon))bestWon=m.round;});
         if(!bestWon) return;
         const nextIdx=ORDER.indexOf(bestWon)+1;
-        label=ORDER[nextIdx]||'Campeón';
-        if(label==='Final') label='Semis';
+        const nextRound=ORDER[nextIdx];
+        // If next round is Final, they're already a Finalist (guaranteed 2nd at minimum)
+        label = nextRound==='Final' ? 'Finalista' : (nextRound||'Campeón');
       }
       allMatches.forEach(m=>{if(m.round==='Final'&&m.done&&m.winner===name)label='Campeón';});
       const ptRow=RANKING_PTS[label];
