@@ -1034,6 +1034,9 @@ function navHome(tab) {
     view = 'h2h';
     h2hP1 = ''; h2hP2 = ''; h2hDropdown = null;
     renderMain();
+  } else if (tab === 'ranking') {
+    view = 'ranking';
+    renderMain();
   }
 }
 
@@ -1269,6 +1272,111 @@ function saveE2Score(id, cat, grp) {
   renderEtapa2();
 }
 
+
+
+// ── RANKING ───────────────────────────────────────────────────────────────────
+const RANKING_PTS = {
+  'Campeón':   {oro:1500, plata:400},
+  'Finalista': {oro:850,  plata:250},
+  'Semis':     {oro:450,  plata:130},
+  '4tos':      {oro:250,  plata:75},
+  '8vos':      {oro:120,  plata:35},
+  '16vos':     {oro:60,   plata:20},
+  '32vos':     {oro:30,   plata:10},
+};
+
+function getPlayerRankingPts(name, etapa) {
+  // Only Etapa 1 has cup data so far
+  if (etapa !== 1) return 0;
+  let pts = 0;
+  const cupMap = {
+    catA_oro: 'oro', catA_plata: 'plata',
+    catB_oro: 'oro', catB_plata: 'plata'
+  };
+  Object.entries(CUP_STATE).forEach(([key, cup]) => {
+    const type = cupMap[key];
+    if (!type) return;
+    const matches = cup.matches.filter(m => !isBYE(m.score) && m.done);
+    // Find the furthest round the player reached
+    const ORDER = ['32vos','16vos','8vos','4tos','Semis','Final'];
+    let bestRound = null;
+    let won = false;
+    matches.forEach(m => {
+      if (m.p1 !== name && m.p2 !== name) return;
+      const idx = ORDER.indexOf(m.round);
+      const bestIdx = ORDER.indexOf(bestRound);
+      if (idx > bestIdx) { bestRound = m.round; won = m.winner === name; }
+    });
+    if (!bestRound) return;
+    // Points: if won the final → Campeón, if lost → the round they lost in
+    let label;
+    if (bestRound === 'Final' && won) label = 'Campeón';
+    else if (bestRound === 'Final') label = 'Finalista';
+    else if (!won) label = bestRound; // lost in this round
+    else return; // still in tournament (shouldn't happen in completed view)
+    const ptRow = RANKING_PTS[label];
+    if (ptRow) pts += ptRow[type] || 0;
+  });
+  return pts;
+}
+
+function renderRanking() {
+  const etapas = [1, 2, 3, 4];
+  // Calculate points for all players
+  const playerPts = {};
+  PLAYERS_LIST.forEach(name => {
+    const e1 = getPlayerRankingPts(name, 1);
+    const total = e1; // E2/E3/E4 when available
+    if (total > 0 || e1 > 0) {
+      playerPts[name] = {e1, e2:0, e3:0, e4:0, total: e1};
+    }
+  });
+
+  // Sort by total desc
+  const sorted = Object.entries(playerPts)
+    .filter(([,p]) => p.total > 0)
+    .sort(([,a],[,b]) => b.total - a.total);
+
+  const rows = sorted.map(([name, pts], i) => {
+    const rank = i + 1;
+    const bg = i%2===0?'#fafbfc':'white';
+    return `<div style="display:grid;grid-template-columns:36px 1fr 60px 50px 50px 50px 50px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center">
+      <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-align:center">${rank}</div>
+      <div style="font-size:.82rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}</div>
+      <div style="font-size:.85rem;font-weight:700;color:var(--blue);text-align:center">${pts.total}</div>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center">${pts.e1||'-'}</div>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center">${pts.e2||'-'}</div>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center">${pts.e3||'-'}</div>
+      <div style="font-size:.72rem;color:var(--muted);text-align:center">${pts.e4||'-'}</div>
+    </div>`;
+  }).join('');
+
+  const header = `<div style="display:grid;grid-template-columns:36px 1fr 60px 50px 50px 50px 50px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px">
+    <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">#</div>
+    <div style="font-size:.6rem;font-weight:700;color:var(--muted)">JUGADOR</div>
+    <div style="font-size:.6rem;font-weight:700;color:var(--blue);text-align:center">TOTAL</div>
+    <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E1</div>
+    <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E2</div>
+    <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E3</div>
+    <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E4</div>
+  </div>`;
+
+  document.getElementById('main').innerHTML = `
+    <div style="background:var(--white);border-bottom:1px solid var(--border);padding:12px 1rem 8px">
+      <div style="font-size:1rem;font-weight:700">🏅 Ranking 2026</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${sorted.length} jugadores con puntos</div>
+    </div>
+    <div style="background:var(--white);border-radius:0;overflow:hidden">
+      ${header}
+      ${rows}
+    </div>
+    <div style="padding:1rem;font-size:.65rem;color:var(--muted);line-height:1.8">
+      <b>Sistema de puntos:</b><br>
+      Campeón: 1500 (Oro) / 400 (Plata)<br>
+      Finalista: 850 / 250 · Semis: 450 / 130 · 4tos: 250 / 75<br>
+      8vos: 120 / 35 · 16vos: 60 / 20 · 32vos: 30 / 10
+    </div>`;
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 for (const key of Object.keys(CUP_STATE)) {
