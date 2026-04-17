@@ -1370,11 +1370,14 @@ function renderRanking() {
 
   // Get best round reached per cup for a player
   function getBestRound(name, cupKeys) {
+    // Returns array of {label, cupType} for each cup the player participated in
     const ORDER = ['32vos','16vos','8vos','4tos','Semis','Final','Campeón'];
-    let bestLabel = null;
+    const cupTypeMap = {catA_oro:'Oro',catA_plata:'Plata',catB_oro:'Oro',catB_plata:'Plata'};
+    const results = [];
     cupKeys.forEach(key => {
       const cup = CUP_STATE[key];
       if(!cup) return;
+      const cupType = cupTypeMap[key] || '';
       const allMatches = cup.matches.filter(m => !isBYE(m.score));
       let bestRound = null, lostRound = null;
       allMatches.forEach(m => {
@@ -1402,10 +1405,9 @@ function renderRanking() {
         label = nextRound==='Final' ? 'Finalista' : (nextRound||'Campeón');
       }
       allMatches.forEach(m => { if(m.round==='Final'&&m.done&&m.winner===name) label='Campeón'; });
-      // Keep best across cups
-      if(!bestLabel || ORDER.indexOf(label) > ORDER.indexOf(bestLabel)) bestLabel = label;
+      results.push({label, cupType});
     });
-    return bestLabel;
+    return results; // [{label:'Finalista', cupType:'Oro'}, {label:'8vos', cupType:'Plata'}]
   }
 
   function calcPtsByCategory(name, category) {
@@ -1464,7 +1466,7 @@ function renderRanking() {
 
     // Scrollable table
     const header = `
-      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 52px 52px 52px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:500px">
+      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 52px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:520px">
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">#</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted)">JUGADOR</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--blue);text-align:center">TOTAL</div>
@@ -1478,13 +1480,16 @@ function renderRanking() {
     const fmt = v => v > 0 ? v : '-';
     const rowsHtml = rows.map(({name,e1pts,e1round,e2,e3,e4,total},i) => {
       const bg = i%2===0?'#fafbfc':'white';
-      const roundShort = e1round ? (SHORT[e1round]||e1round) : '-';
-      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 52px 52px 52px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:500px">
+      // Build phase display: e.g. "Final Oro / 8vos Plata"
+      const phaseHtml = (e1round||[]).map(r =>
+        `<div style="font-size:.6rem;white-space:nowrap">${SHORT[r.label]||r.label} <span style="color:${r.cupType==='Oro'?'#b8860b':'#607d8b'};font-weight:600">${r.cupType}</span></div>`
+      ).join('') || '<div style="font-size:.68rem;color:var(--muted)">-</div>';
+      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 52px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:520px">
         <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-align:center">${i+1}</div>
         <div style="font-size:.82rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}</div>
         <div style="font-size:.85rem;font-weight:700;color:var(--blue);text-align:center">${total}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e1pts)}</div>
-        <div style="font-size:.68rem;color:var(--text);text-align:center;font-weight:500">${roundShort}</div>
+        <div style="text-align:center">${phaseHtml}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
