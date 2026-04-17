@@ -414,7 +414,7 @@ function renderCupNav() {
 function renderMain(){
   const loader=document.getElementById('app-loading');
   if(loader)loader.style.display='none';
-  if(view==='home')renderHome();else if(view==='draws')renderDraws();else if(view==='players')renderPlayers();else if(view==='groups')renderGroups();else if(view==='history')renderHistory();else if(view==='h2h')renderH2H();const existing=document.getElementById('adminBadge');if(existing)existing.remove();if(isAdmin){const b=document.createElement('div');b.id='adminBadge';b.className='admin-badge';b.textContent='⚙ Admin · Tocá para salir';b.onclick=()=>{isAdmin=false;renderMain();showToast('Modo admin desactivado');};document.body.appendChild(b);}}
+  if(view==='home')renderHome();else if(view==='draws')renderDraws();else if(view==='players')renderPlayers();else if(view==='groups')renderGroups();else if(view==='history')renderHistory();else if(view==='h2h')renderH2H();else if(view==='etapa2')renderEtapa2();else if(view==='ranking')renderRanking();const existing=document.getElementById('adminBadge');if(existing)existing.remove();if(isAdmin){const b=document.createElement('div');b.id='adminBadge';b.className='admin-badge';b.textContent='⚙ Admin · Tocá para salir';b.onclick=()=>{isAdmin=false;renderMain();showToast('Modo admin desactivado');};document.body.appendChild(b);}}
 
 // ── DRAWS ─────────────────────────────────────────────────────────────────────
 function renderDraws() {
@@ -1288,34 +1288,66 @@ const RANKING_PTS = {
 };
 
 function getPlayerRankingPts(name, etapa) {
-  // Only Etapa 1 has cup data so far
   if (etapa !== 1) return 0;
   let pts = 0;
-  const cupMap = {
-    catA_oro: 'oro', catA_plata: 'plata',
-    catB_oro: 'oro', catB_plata: 'plata'
-  };
+  const cupMap = {catA_oro:'oro', catA_plata:'plata', catB_oro:'oro', catB_plata:'plata'};
+  const ORDER = ['32vos','16vos','8vos','4tos','Semis','Final'];
+
   Object.entries(CUP_STATE).forEach(([key, cup]) => {
     const type = cupMap[key];
     if (!type) return;
-    const matches = cup.matches.filter(m => !isBYE(m.score) && m.done);
-    // Find the furthest round the player reached
-    const ORDER = ['32vos','16vos','8vos','4tos','Semis','Final'];
+    const allMatches = cup.matches.filter(m => !isBYE(m.score));
+
+    // Find the furthest round the player reached (won OR lost)
     let bestRound = null;
-    let won = false;
-    matches.forEach(m => {
+    let lostRound = null;
+
+    allMatches.forEach(m => {
       if (m.p1 !== name && m.p2 !== name) return;
+      if (!m.done) return;
       const idx = ORDER.indexOf(m.round);
       const bestIdx = ORDER.indexOf(bestRound);
-      if (idx > bestIdx) { bestRound = m.round; won = m.winner === name; }
+      if (idx >= bestIdx) {
+        bestRound = m.round;
+        if (m.winner !== name) lostRound = m.round; // player lost here
+      }
     });
+
     if (!bestRound) return;
-    // Points: if won the final → Campeón, if lost → the round they lost in
+
+    // Determine label:
+    // - If player lost: they get points for the round they lost in
+    // - If player never lost (still in tournament): they get points for the best round they won
     let label;
-    if (bestRound === 'Final' && won) label = 'Campeón';
-    else if (bestRound === 'Final') label = 'Finalista';
-    else if (!won) label = bestRound; // lost in this round
-    else return; // still in tournament (shouldn't happen in completed view)
+    if (lostRound) {
+      // Lost in this round
+      if (lostRound === 'Final') label = 'Finalista';
+      else label = lostRound;
+    } else {
+      // Still in tournament — give minimum guaranteed points (best round won)
+      // Find best round they WON
+      let bestWonRound = null;
+      allMatches.forEach(m => {
+        if (!m.done || m.winner !== name) return;
+        const idx = ORDER.indexOf(m.round);
+        const bestIdx = ORDER.indexOf(bestWonRound);
+        if (idx > bestIdx) bestWonRound = m.round;
+      });
+      if (!bestWonRound) return;
+      // Points for the round BEFORE the next one (what they've guaranteed)
+      // e.g. won 4tos → guaranteed Semis points (they're in semis)
+      const nextIdx = ORDER.indexOf(bestWonRound) + 1;
+      const nextRound = ORDER[nextIdx];
+      if (!nextRound) { label = 'Campeón'; }
+      else if (nextRound === 'Final') label = 'Semis';
+      else label = bestWonRound; // guaranteed at minimum the round they won
+    }
+
+    // Special case: won the Final
+    allMatches.forEach(m => {
+      if (m.round === 'Final' && m.done && m.winner === name) label = 'Campeón';
+    });
+
     const ptRow = RANKING_PTS[label];
     if (ptRow) pts += ptRow[type] || 0;
   });
