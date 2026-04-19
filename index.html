@@ -442,7 +442,7 @@ function renderCupNav() {
 // ── RENDER MAIN ───────────────────────────────────────────────────────────────
 function renderMain(){
   const loader=document.getElementById('app-loading');
-  if(loader)loader.style.display='none';
+  if(loader&&window._splashReady)loader.style.display='none';
   if(view==='home')renderHome();else if(view==='draws')renderDraws();else if(view==='players')renderPlayers();else if(view==='groups')renderGroups();else if(view==='history')renderHistory();else if(view==='h2h')renderH2H();else if(view==='etapa2')renderEtapa2();else if(view==='ranking')renderRanking();const existing=document.getElementById('adminBadge');if(existing)existing.remove();if(isAdmin){const b=document.createElement('div');b.id='adminBadge';b.className='admin-badge';b.textContent='⚙ Admin · Tocá para salir';b.onclick=()=>{isAdmin=false;renderMain();showToast('Modo admin desactivado');};document.body.appendChild(b);}}
 
 // ── DRAWS ─────────────────────────────────────────────────────────────────────
@@ -709,14 +709,18 @@ function renderPlayers(){
   const filtered=allSorted.filter(n=>n.toLowerCase().includes(search));
   const listHtml=filtered.map(name=>{
     const d=PLAYER_DATA[name];
-    const hm=HIST_MATCHES.filter(m=>m.p1===name||m.p2===name);
-    const hw=hm.filter(m=>m.winner===name).length;
-    const hl=hm.filter(m=>m.winner&&m.winner!==name).length;
-    const gw=(d?.group_w||0),gl=(d?.group_l||0),pw=(d?.playoff_w||0),pl=(d?.playoff_l||0);
-    // Add E2 matches
-    let e2w=0,e2l=0;
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done)return;if(m.winner===name)e2w++;else if(m.p1===name||m.p2===name)e2l++;})));}
-    const tw=gw+pw+hw+e2w,tl=gl+pl+hl+e2l;
+    // Build full match list same way as profile (so counts match)
+    const _allM=[];
+    HIST_MATCHES.forEach(m=>{if(m.p1===name||m.p2===name)_allM.push(m);});
+    if(d){
+      (d.group_matches||[]).forEach(m=>{_allM.push({winner:m.won?name:m.opp});});
+      const _live=getLivePlayoffMatches(name);
+      const _hKeys=new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
+      [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{_allM.push({winner:m.won?name:m.opp});});
+    }
+    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner});})));}
+    const tw=_allM.filter(m=>m.winner===name).length;
+    const tl=_allM.filter(m=>m.winner&&m.winner!==name).length;
     return `<div class="player-item" onclick="openPlayer('${name.replace(/'/g,"\\'")}')">
       <div><div class="pi-name">${name}</div><div class="pi-stats">${tw}V – ${tl}D en total</div></div>
       <div style="display:flex;align-items:center;gap:8px"><div style="font-size:.72rem;font-weight:700;color:var(--green)">${tw}V</div><div class="pi-arrow">›</div></div>
@@ -1554,6 +1558,14 @@ function renderRanking() {
 
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+// Show splash for minimum 2 seconds
+window._splashReady = false;
+setTimeout(() => {
+  window._splashReady = true;
+  const loader = document.getElementById('app-loading');
+  if (loader) loader.style.display = 'none';
+}, 2000);
+
 for (const key of Object.keys(CUP_STATE)) {
   propagateAllTBD(CUP_STATE[key].matches);
 }
