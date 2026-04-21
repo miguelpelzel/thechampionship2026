@@ -247,6 +247,14 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
       });
     };
     window.addEventListener('load',()=>{
+      // One-time corrections for Firebase docs with wrong data
+      async function _fixFirebaseDocs() {
+        if(!window.fbSaveMatch) return;
+        // catB_plata final: Manuel Reboiras won, not Diego Pertman
+        await window.fbSaveMatch('catB_plata', 'final_1', '6-2 6-2', 'Manuel Reboiras');
+      }
+      setTimeout(_fixFirebaseDocs, 1500);
+      
       if(typeof CUP_STATE!=='undefined')window.fbListen();
       else setTimeout(()=>window.fbListen(),500);
       if(typeof E2_GROUPS!=='undefined')window.fbListenE2();
