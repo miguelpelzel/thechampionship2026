@@ -200,7 +200,10 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
           if(!cup)return;
           const m=cup.matches.find(x=>x.id===d.matchId);
           if(!m)return;
-          if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){
+          // Skip if Firebase has invalid winner (Por definir or empty)
+          if(!d.score||!d.score.trim())return;
+          if(!d.winner||d.winner==='Por definir'||d.winner==='por definir')return;
+          if(m.score!==d.score||m.winner!==d.winner){
             m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
           }
         });
