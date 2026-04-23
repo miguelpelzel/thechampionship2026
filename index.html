@@ -238,7 +238,9 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
             if(!g)return;
             const m=g.matches.find(x=>x.id===d.matchId);
             if(!m)return;
-            if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){
+            if(d.score==='__deleted__'){
+              if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
+            } else if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){
               m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
             }
           }
@@ -1196,7 +1198,7 @@ function renderE2PartidosCard(g) {
     if (isAdmin && !m.done && !isEditing)
       footer = `<button class="btn-load" onclick="startE2Edit('${m.id}',${g.group})">+ Cargar resultado</button>`;
     else if (isAdmin && m.done && !isEditing)
-      footer = `<button class="btn-edit" onclick="startE2Edit('${m.id}',${g.group})">✎ Editar</button>`;
+      footer = `<button class="btn-edit" onclick="startE2Edit('${m.id}',${g.group})">✎ Editar</button><button class="btn-cancel" style="margin-left:6px" onclick="deleteE2Score('${m.id}','${e2Cat}',${g.group})">✕ Borrar</button>`;
     else if (isEditing)
       footer = `<div class="score-form"><input class="input" id="e2si-${m.id}" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key==='Enter')saveE2Score('${m.id}','${e2Cat}',${g.group})"/><button class="btn-ok" onclick="saveE2Score('${m.id}','${e2Cat}',${g.group})">OK</button><button class="btn-cancel" onclick="cancelE2Edit()">✕</button></div>
       <div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
@@ -1287,6 +1289,25 @@ function startE2Edit(id, grp) {
   setTimeout(() => { const el = document.getElementById('e2si-'+id); if(el) el.focus(); }, 60);
 }
 function cancelE2Edit() { editingE2Id = null; renderEtapa2(); }
+
+function deleteE2Score(id, cat, grp) {
+  if (!confirm('¿Borrar el resultado de este partido?')) return;
+  const g = window.E2_STATE[cat].find(x => x.group === grp);
+  if (!g) return;
+  const m = g.matches.find(x => x.id === id);
+  if (!m) return;
+  m.score = ''; m.done = false; m.winner = null;
+  // Delete from Firebase
+  if (window.fbDeleteMatch) {
+    window.fbDeleteMatch(`e2_${cat}${grp}`, id);
+  } else if (window.fbSaveMatch) {
+    // Overwrite with empty - Firebase will ignore empty scores on next load
+    // We handle this by storing a special "deleted" marker
+    window.fbSaveMatch(`e2_${cat}${grp}`, id, '__deleted__', '__deleted__');
+  }
+  showToast('✓ Resultado borrado');
+  renderEtapa2();
+}
 
 function saveE2Score(id, cat, grp) {
   const el = document.getElementById('e2si-'+id);
