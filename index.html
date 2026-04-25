@@ -190,6 +190,13 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     const firebaseConfig={apiKey:"AIzaSyAWrYHWre7FcH1Zag-beRx1SoBMr0uncrw",authDomain:"thechampionship2026.firebaseapp.com",projectId:"thechampionship2026",storageBucket:"thechampionship2026.firebasestorage.app",messagingSenderId:"616059146400",appId:"1:616059146400:web:8fd0fd20276ccaed9ef9c5"};
     const fbApp=initializeApp(firebaseConfig);const db=getFirestore(fbApp);
     window.fbSaveMatch=async function(cupKey,matchId,score,winner){try{await setDoc(doc(db,'matches',cupKey+'__'+matchId),{cupKey,matchId,score,winner,updatedAt:Date.now()});}catch(e){console.error(e);}};
+    // Known Firebase corrections (wrong data that needs to be overridden)
+    const FB_CORRECTIONS = {
+      'catB_plata__final_1': {score:'6-2 6-2', winner:'Manuel Reboiras'},
+      'catB_oro__final_1':   {score:'6-0 4-6 10-8', winner:'Fernando Quiñones'},
+      'catB_oro__semi_1':    {score:'5-7 6-1 10-7', winner:'Manuel Mendive'},
+      'catB_oro__semi_2':    {score:'WO', winner:'Fernando Quiñones'},
+    };
     window.fbListen=function(){
       onSnapshot(collection(db,'matches'),snapshot=>{
         // Apply ALL docs (not just changes) so order doesn't matter
@@ -200,11 +207,16 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
           if(!cup)return;
           const m=cup.matches.find(x=>x.id===d.matchId);
           if(!m)return;
-          // Skip if Firebase has invalid winner (Por definir or empty)
-          if(!d.score||!d.score.trim())return;
-          if(!d.winner||d.winner==='Por definir'||d.winner==='por definir')return;
-          if(m.score!==d.score||m.winner!==d.winner){
-            m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+          // Check corrections table first
+          const corrKey=d.cupKey+'__'+d.matchId;
+          const corr=FB_CORRECTIONS[corrKey];
+          const score  = corr ? corr.score  : d.score;
+          const winner = corr ? corr.winner : d.winner;
+          // Skip if invalid winner
+          if(!score||!score.trim())return;
+          if(!winner||winner==='Por definir'||winner==='por definir')return;
+          if(m.score!==score||m.winner!==winner){
+            m.score=score;m.done=true;m.winner=winner;changed=true;
           }
         });
         if(changed){
