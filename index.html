@@ -390,7 +390,7 @@ function setBoxesHtml(parsed, playerIdx) {
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
+function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
 
 function setCup(cup) { currentCup = cup; currentRound = 'all'; editingId = null; renderCupNav(); renderMain(); }
 function setRound(r) { currentRound = r; editingId = null; renderMain(); }
@@ -751,14 +751,15 @@ function renderPlayers(){
     const _allM=[];
     HIST_MATCHES.forEach(m=>{if(m.p1===name||m.p2===name)_allM.push(m);});
     if(d){
-      (d.group_matches||[]).forEach(m=>{_allM.push({winner:m.won?name:m.opp});});
+      (d.group_matches||[]).forEach(m=>{_allM.push({winner:m.won?name:m.opp,score:m.score});});
       const _live=getLivePlayoffMatches(name);
       const _hKeys=new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
       [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{_allM.push({winner:m.won?name:m.opp});});
     }
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner});})));}
-    const tw=_allM.filter(m=>m.winner===name).length;
-    const tl=_allM.filter(m=>m.winner&&m.winner!==name).length;
+    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner,score:m.score});})));}
+    const _noWO=m=>m.score!=='WO'&&m.score!=='WO 1'&&m.score!=='WO 2';
+    const tw=_allM.filter(m=>m.winner===name&&_noWO(m)).length;
+    const tl=_allM.filter(m=>m.winner&&m.winner!==name&&_noWO(m)).length;
     return `<div class="player-item" onclick="openPlayer('${name.replace(/'/g,"\\'")}')">
       <div><div class="pi-name">${name}</div><div class="pi-stats">${tw}V – ${tl}D en total</div></div>
       <div style="display:flex;align-items:center;gap:8px"><div style="font-size:.72rem;font-weight:700;color:var(--green)">${tw}V</div><div class="pi-arrow">›</div></div>
@@ -791,9 +792,9 @@ function renderPlayersList() {
       (d.group_matches||[]).forEach(m => { _allM.push({winner:m.won?name:m.opp}); });
       const _live = getLivePlayoffMatches(name);
       const _hKeys = new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
-      [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{ _allM.push({winner:m.won?name:m.opp}); });
+      [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{ _allM.push({winner:m.won?name:m.opp,score:m.score}); });
     }
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner});})));}
+    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner,score:m.score});})));}
     const tw = _allM.filter(m=>m.winner===name).length;
     const tl = _allM.filter(m=>m.winner&&m.winner!==name).length;
     return `<div class="player-row" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}<span class="player-stat">${tw}V – ${tl}D</span></div>`;
@@ -918,8 +919,9 @@ function renderPlayerDetail(name){
   }
   // Future etapas (3, 4) can be added here similarly
   allMatches.sort((a,b)=>b.year-a.year||b.etapa-a.etapa);
-  const tw=allMatches.filter(m=>m.winner===name).length;
-  const tl=allMatches.filter(m=>m.winner&&m.winner!==name).length;
+  const _isWO=m=>m.score==='WO'||m.score==='WO 1'||m.score==='WO 2';
+  const tw=allMatches.filter(m=>m.winner===name&&!_isWO(m)).length;
+  const tl=allMatches.filter(m=>m.winner&&m.winner!==name&&!_isWO(m)).length;
   const winPct=(tw+tl)>0?Math.round(tw/(tw+tl)*100):0;
   const summaryHtml=buildPlayerSummary(name,allMatches,tw,tl,winPct);
   const byYearEtapa={};
@@ -1119,29 +1121,31 @@ function navHome(tab) {
   if (btn) btn.classList.add('active');
   // Render the right view
   if (tab === 'main') {
-    view = 'home';
+    view = 'home'; gtag('event','page_view',{page_title:'Inicio'});
     renderMain();
   } else if (tab === 'players') {
-    view = 'players';
-    selectedPlayer = null;
-    playerSearch = '';
+    view = 'players'; selectedPlayer = null; playerSearch = '';
+    gtag('event','page_view',{page_title:'Jugadores'});
     renderMain();
   } else if (tab === 'history') {
-    view = 'history';
-    histFilter = {year:'all', etapa:'all', fase:'all', search:''};
+    view = 'history'; histFilter = {year:'all', etapa:'all', fase:'all', search:''};
+    gtag('event','page_view',{page_title:'Historial'});
     renderMain();
   } else if (tab === 'h2h') {
-    view = 'h2h';
-    h2hP1 = ''; h2hP2 = ''; h2hDropdown = null;
+    view = 'h2h'; h2hP1 = ''; h2hP2 = ''; h2hDropdown = null;
+    gtag('event','page_view',{page_title:'H2H'});
     renderMain();
   } else if (tab === 'ranking') {
     view = 'ranking';
+    gtag('event','page_view',{page_title:'Ranking'});
     renderMain();
   }
 }
 
 function e2NavView(tab) {
   e2View = tab;
+  const _tl={grupos:'Etapa 2 - Grupos',partidos:'Etapa 2 - Partidos',posiciones:'Etapa 2 - Posiciones'};
+  gtag('event','page_view',{page_title:_tl[tab]||'Etapa 2'});
   document.querySelectorAll('#nav-e2 .bn-item').forEach(el => el.classList.remove('active'));
   const btn = document.getElementById('e2bn-' + tab);
   if (btn) btn.classList.add('active');
