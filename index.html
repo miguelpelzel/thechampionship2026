@@ -1125,6 +1125,7 @@ function initE2State() {
   if (!window.E2_STATE) {
     window.E2_STATE = JSON.parse(JSON.stringify(E2_GROUPS));
   }
+  // no-op if already initialized at startup
 }
 
 function navHome(tab) {
