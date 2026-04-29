@@ -241,32 +241,38 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     };
     window.fbListenE2=function(){
       if(!window.E2_STATE) window.E2_STATE=JSON.parse(JSON.stringify(E2_GROUPS));
+      // Use separate collection for E2 to avoid re-reading all matches
       onSnapshot(collection(db,'matches'),snapshot=>{
         let changed=false;
-        snapshot.docChanges().forEach(change=>{
-          if(change.type==='added'||change.type==='modified'){
-            const d=change.doc.data();
-            const catMatch=d.cupKey&&d.cupKey.match(/^e2_([AB])(\d+)$/);
-            if(!catMatch)return;
-            const cat=catMatch[1],grp=parseInt(catMatch[2]);
-            const g=window.E2_STATE[cat]&&window.E2_STATE[cat].find(x=>x.group===grp);
-            if(!g)return;
-            const m=g.matches.find(x=>x.id===d.matchId);
-            if(!m)return;
-            if(d.score==='__deleted__'){
-              if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
-            } else if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){
+        // Use ALL docs (not just changes) so first load gets everything
+        snapshot.docs.forEach(doc=>{
+          const d=doc.data();
+          const catMatch=d.cupKey&&d.cupKey.match(/^e2_([AB])(\d+)$/);
+          if(!catMatch)return;
+          const cat=catMatch[1],grp=parseInt(catMatch[2]);
+          const g=window.E2_STATE[cat]&&window.E2_STATE[cat].find(x=>x.group===grp);
+          if(!g)return;
+          const m=g.matches.find(x=>x.id===d.matchId);
+          if(!m)return;
+          if(d.score==='__deleted__'){
+            if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
+          } else if(d.score&&d.score.trim()){
+            if(!m.done||m.score!==d.score||m.winner!==d.winner){
               m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
-              // Cache timestamp for export
               if(!window._fbE2Cache) window._fbE2Cache={};
               window._fbE2Cache[d.cupKey+'__'+d.matchId]=d.updatedAt||Date.now();
             }
           }
         });
-        if(changed||_e2FirstLoad){
-          _e2FirstLoad=false;
+        // Always re-render home on first snapshot to show correct progress
+        if(changed||!window._e2Loaded){
+          window._e2Loaded=true;
           if(view==='etapa2') renderEtapa2();
-          else if(view==='home') renderMain(); // update progress on home screen
+          else if(view==='home') renderMain();
+          else {
+            // Even if not on home yet, update when user navigates there
+            window._e2NeedsHomeRefresh=true;
+          }
         }
       });
     };
@@ -1204,6 +1210,8 @@ function goHome() {
   document.querySelectorAll('#nav-home .bn-item').forEach(el => el.classList.remove('active'));
   document.getElementById('bn-home-main').classList.add('active');
   view = 'home'; renderMain();
+  // Re-render after Firebase settles to show correct E2 progress
+  setTimeout(renderMain, 1500);
 }
 
 function renderEtapa2() {
@@ -1737,6 +1745,8 @@ function _hideSplash() {
     loader.style.opacity = '0';
     setTimeout(() => { loader.style.display = 'none'; }, 500);
   }
+  // Re-render home after Firebase has had time to load E2 data
+  setTimeout(() => { if(view==='home') renderMain(); }, 2000);
 }
 function _waitAndHide() {
   if (window._splashImgLoaded) {
