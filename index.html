@@ -263,7 +263,11 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
             }
           }
         });
-        if(changed&&view==='etapa2')renderEtapa2();
+        if(changed||_e2FirstLoad){
+          _e2FirstLoad=false;
+          if(view==='etapa2') renderEtapa2();
+          else if(view==='home') renderMain(); // update progress on home screen
+        }
       });
     };
     window.addEventListener('load',()=>{
