@@ -257,6 +257,9 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
               if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
             } else if(d.score&&d.score.trim()&&(m.score!==d.score||m.winner!==d.winner)){
               m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+              // Cache timestamp for export
+              if(!window._fbE2Cache) window._fbE2Cache={};
+              window._fbE2Cache[d.cupKey+'__'+d.matchId]=d.updatedAt||Date.now();
             }
           }
         });
@@ -625,6 +628,20 @@ function renderHome(){
     const aCls=s.status==='current'?'s-active':'s-locked';
     const onclick=s.clickable?`onclick="openStage(${s.id})"`:'' ;
     const pctTag=s.id===1?`<div class="stage-meta-item">📊 ${pct}% playoffs</div>`:'';
+    // E2 progress per category
+    let e2Tag = '';
+    if (s.id === 2 && window.E2_STATE) {
+      const calcE2 = cat => {
+        const groups = window.E2_STATE[cat] || [];
+        let total = 0, done = 0;
+        groups.forEach(g => g.matches.forEach(m => { total++; if(m.done) done++; }));
+        const pct = total > 0 ? Math.round(done/total*100) : 0;
+        return `Cat. ${cat}: ${done}/${total} (${pct}%)`;
+      };
+      const aStr = calcE2('A');
+      const bStr = calcE2('B');
+      e2Tag = `<div class="stage-meta-item" style="width:100%">🎾 ${aStr} · ${bStr}</div>`;
+    }
     return `<div class="stage-card ${aCls}" ${onclick} style="">
       <div class="stage-bar ${barCls}"></div>
       <div class="stage-body">
@@ -634,6 +651,7 @@ function renderHome(){
           <div class="stage-meta-item">📅 ${s.dates}</div>
           ${s.players?`<div class="stage-meta-item">👤 ${s.players} jug.</div>`:''}
           ${pctTag}
+          ${e2Tag}
         </div>
       </div>
       ${s.clickable?'<div class="stage-arrow">›</div>':''}
@@ -1217,8 +1235,13 @@ function renderEtapa2() {
 
   document.getElementById('main').innerHTML = `
     <div style="background:var(--white);border-bottom:1px solid var(--border);padding:12px 1rem 8px">
-      <div style="font-size:1rem;font-weight:700">Etapa 2 · 2026</div>
-      <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${done}/${total} partidos jugados · ${pct}%</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1rem;font-weight:700">Etapa 2 · 2026</div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px">${done}/${total} partidos jugados · ${pct}%</div>
+        </div>
+        ${isAdmin?'<button onclick="exportE2Results()" style="font-size:.72rem;background:var(--blue);color:white;border:none;border-radius:8px;padding:6px 12px;cursor:pointer">📥 Exportar</button>':''} 
+      </div>
     </div>
     ${catTabs}
     <div style="display:flex;gap:6px;padding:8px 1rem;overflow-x:auto;background:var(--white);border-bottom:1px solid var(--border)">${grpPills}</div>
@@ -1648,6 +1671,54 @@ function renderRanking() {
     </div>`;
 }
 
+
+
+// ── EXPORT E2 RESULTS ─────────────────────────────────────────────────────────
+function exportE2Results() {
+  if (!window.E2_STATE) { showToast('No hay datos cargados'); return; }
+
+  // Collect all played matches with their timestamps from Firebase
+  // We use updatedAt from the Firebase listener data
+  const rows = [];
+  rows.push(['Categoría','Grupo','Jugador 1','Jugador 2','Score','Ganador','Fecha']);
+
+  // Get Firebase data with timestamps
+  const fbData = window._fbE2Cache || {};
+
+  ['A','B'].forEach(cat => {
+    (window.E2_STATE[cat]||[]).forEach(g => {
+      g.matches.forEach(m => {
+        if (!m.done || !m.score) return;
+        const key = `e2_${cat}${g.group}__${m.id}`;
+        const ts = fbData[key];
+        let fecha = '';
+        if (ts) {
+          const d = new Date(ts);
+          fecha = d.toLocaleDateString('es-UY', {day:'2-digit',month:'2-digit',year:'numeric'});
+        }
+        rows.push([
+          'Cat. ' + cat,
+          'Grupo ' + g.group,
+          m.p1, m.p2,
+          m.score,
+          m.winner,
+          fecha
+        ]);
+      });
+    });
+  });
+
+  // Generate CSV
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'etapa2_resultados_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ Exportado correctamente');
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show splash: wait for image then show for 2s, then fade to menu
