@@ -708,6 +708,7 @@ function getAllMatches2026(){
           if(!m.done||!m.score)return;
           const k=[m.p1,m.p2,'E2',g.group,cat].join('|');
           if(seen.has(k))return; seen.add(k);
+          if(m.score==='NJ') return; // NJ no aparece en historial
           out.push({year:2026,etapa:2,fase:'Fase de Grupos E2',instancia:'Grupo '+g.group+' · Cat. '+cat,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner});
         });
       });
@@ -784,7 +785,7 @@ function renderPlayers(){
       const _hKeys=new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
       [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{_allM.push({winner:m.won?name:m.opp});});
     }
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner,score:m.score});})));}
+    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name)||m.score==='NJ')return;_allM.push({winner:m.winner,score:m.score});})));}
     const _noWO=m=>m.score!=='WO'&&m.score!=='WO 1'&&m.score!=='WO 2';
     const tw=_allM.filter(m=>m.winner===name&&_noWO(m)).length;
     const tl=_allM.filter(m=>m.winner&&m.winner!==name&&_noWO(m)).length;
@@ -822,7 +823,7 @@ function renderPlayersList() {
       const _hKeys = new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
       [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{ _allM.push({winner:m.won?name:m.opp,score:m.score}); });
     }
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name))return;_allM.push({winner:m.winner,score:m.score});})));}
+    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name)||m.score==='NJ')return;_allM.push({winner:m.winner,score:m.score});})));}
     const tw = _allM.filter(m=>m.winner===name).length;
     const tl = _allM.filter(m=>m.winner&&m.winner!==name).length;
     return `<div class="player-row" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}<span class="player-stat">${tw}V – ${tl}D</span></div>`;
@@ -1044,6 +1045,7 @@ function getH2HMatches(a,b){
         g.matches.forEach(m=>{
           if(!m.done||!m.score)return;
           if((m.p1===a&&m.p2===b)||(m.p1===b&&m.p2===a)){
+            if(m.score==='NJ') return; // NJ no aparece en H2H
             matches.push({year:2026,etapa:2,fase:'Fase de Grupos E2',instancia:'Grupo '+g.group+' · Cat. '+cat,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner,source:'e2'});
           }
         });
@@ -1291,12 +1293,15 @@ function renderE2PartidosCard(g) {
       : `<div style="font-size:.65rem;color:var(--muted)">Pendiente</div>`;
     let footer = '';
     if (isAdmin && !m.done && !isEditing)
-      footer = `<button class="btn-load" onclick="startE2Edit('${m.id}',${g.group})">+ Cargar resultado</button>`;
+      footer = `<button class="btn-load" onclick="startE2Edit('${m.id}',${g.group})">+ Cargar resultado</button><button class="btn-cancel" style="margin-left:6px;background:#6c757d;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.78rem;cursor:pointer" onclick="saveE2NJ('${m.id}','${e2Cat}',${g.group})">N/J</button>`;
     else if (isAdmin && m.done && !isEditing)
       footer = `<button class="btn-edit" onclick="startE2Edit('${m.id}',${g.group})">✎ Editar</button><button class="btn-cancel" style="margin-left:6px" onclick="deleteE2Score('${m.id}','${e2Cat}',${g.group})">✕ Borrar</button>`;
     else if (isEditing)
       footer = `<div class="score-form"><input class="input" id="e2si-${m.id}" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key==='Enter')saveE2Score('${m.id}','${e2Cat}',${g.group})"/><button class="btn-ok" onclick="saveE2Score('${m.id}','${e2Cat}',${g.group})">OK</button><button class="btn-cancel" onclick="cancelE2Edit()">✕</button></div>
-      <div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <div class="score-hint" style="flex:1">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>
+        <button class="btn-cancel" style="background:#6c757d;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:.75rem;cursor:pointer" onclick="saveE2NJ('${m.id}','${e2Cat}',${g.group})">N/J</button>
+      </div>`;
     return `<div class="group-match-card">
       <div class="gm-players">
         <div class="gm-p1" style="font-weight:${p1won?700:400};color:${p1won?'var(--text)':'var(--muted)'}" onclick="openPlayer('${m.p1.replace(/'/g,"\\'")}')">${m.p1}</div>
@@ -1321,7 +1326,8 @@ function renderE2PosicionesCard(g) {
   const stats = {};
   g.players.forEach(p => { stats[p] = {pj:0,pg:0,pp:0,pts:0,gg:0,gp:0}; });
   g.matches.forEach(m => {
-    if (!m.done || !m.winner) return;
+    if (!m.done) return;
+    if (m.score === 'NJ' || !m.winner) return; // NJ: cuenta como jugado pero sin puntos
     const loser = m.winner === m.p1 ? m.p2 : m.p1;
     const isSTB = m.score && m.score !== 'WO' && m.score.trim().split(/\s+/).length === 3;
     const pts = isSTB ? 3 : 4;
@@ -1384,6 +1390,19 @@ function startE2Edit(id, grp) {
   setTimeout(() => { const el = document.getElementById('e2si-'+id); if(el) el.focus(); }, 60);
 }
 function cancelE2Edit() { editingE2Id = null; renderEtapa2(); }
+
+function saveE2NJ(id, cat, grp) {
+  // Mark match as played but no points awarded, no history entry
+  const g = window.E2_STATE[cat].find(x => x.group === grp);
+  if (!g) return;
+  const m = g.matches.find(x => x.id === id);
+  if (!m) return;
+  m.score = 'NJ'; m.done = true; m.winner = null;
+  editingE2Id = null;
+  if (window.fbSaveMatch) window.fbSaveMatch(`e2_${cat}${grp}`, id, 'NJ', 'NJ');
+  showToast('✓ Partido marcado como No Jugado');
+  renderEtapa2();
+}
 
 function deleteE2Score(id, cat, grp) {
   if (!confirm('¿Borrar el resultado de este partido?')) return;
