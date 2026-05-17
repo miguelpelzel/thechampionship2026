@@ -1217,6 +1217,7 @@ function goHome() {
 }
 
 function renderEtapa2() {
+  if(e2View==='cuadros'){renderE2Cuadros();return;}
   initE2State();
   const groups = window.E2_STATE[e2Cat];
   const filtered = e2GrpFilter === 'all' ? groups : groups.filter(g => g.group === e2GrpFilter);
