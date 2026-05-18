@@ -1854,7 +1854,7 @@ function renderE2Cuadros() {
   var pendColor = pend>0 ? 'var(--orange)' : 'var(--green)';
   var cupIcon = isOro ? String.fromCodePoint(0x1F947) : String.fromCodePoint(0x1F948);
   var cupBadge = isOro ? 'Copa Oro' : 'Copa Plata';
-  var pdfBtn = '<button onclick="downloadE2CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer">Descargar PDF</button>';
+
 
   document.getElementById('main').innerHTML =
     cupNavHtml +
@@ -1862,7 +1862,7 @@ function renderE2Cuadros() {
       '<div class="cup-hero-top">'+
         '<div class="cup-hero-title">'+cupIcon+' '+cup.label+'</div>'+
         '<div style="display:flex;gap:8px;align-items:center">'+
-          '<div class="cup-badge badge-'+cup.type+'">'+cupBadge+'</div>'+pdfBtn+
+          '<div class="cup-badge badge-'+cup.type+'">'+cupBadge+'</div>'+
         '</div>'+
       '</div>'+
       '<div class="progress-track"><div class="progress-fill fill-'+cup.type+'" style="width:'+pct+'%"></div></div>'+
@@ -1875,6 +1875,15 @@ function renderE2Cuadros() {
     '</div>'+
     '<div class="round-nav">'+rtabs+'</div>'+
     '<div class="draw-content">'+(matchHtml||'<div class="empty">Sin partidos</div>')+'</div>';
+  // Add PDF button via DOM (avoids onclick-in-innerHTML CSP issues)
+  var _pdfContainer = document.querySelector('#main .cup-hero-top > div:last-child');
+  if (_pdfContainer) {
+    var _pdfBtn = document.createElement('button');
+    _pdfBtn.textContent = 'Descargar PDF';
+    _pdfBtn.style.cssText = 'background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer';
+    _pdfBtn.addEventListener('click', function(){ showBracketPreview(); });
+    _pdfContainer.appendChild(_pdfBtn);
+  }
   } catch(e) {
     console.error("renderE2Cuadros error:", e);
     var el = document.getElementById('main');
@@ -1986,106 +1995,184 @@ function showBracketPreview() {
   var prev = document.getElementById('bracketPreview');
   if (prev) prev.remove();
 
-  var cups = [
-    {key:'e2_catA_oro',   label:'Cat. A — Oro'},
-    {key:'e2_catA_plata', label:'Cat. A — Plata'},
-    {key:'e2_catB_oro',   label:'Cat. B — Oro'},
-    {key:'e2_catB_plata', label:'Cat. B — Plata'},
+  var CUPS_INFO = [
+    {key:'e2_catA_oro',   label:'Cat. A — Copa de Oro',   type:'oro'},
+    {key:'e2_catA_plata', label:'Cat. A — Copa de Plata', type:'plata'},
+    {key:'e2_catB_oro',   label:'Cat. B — Copa de Oro',   type:'oro'},
+    {key:'e2_catB_plata', label:'Cat. B — Copa de Plata', type:'plata'},
   ];
-
-  var cup = E2_CUPS[e2CurrentCup];
-  var bracketHTML = buildBracketHTML(e2CurrentCup, cup.label, cup.type);
 
   var div = document.createElement('div');
   div.id = 'bracketPreview';
-  div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;display:flex;flex-direction:column;overflow:hidden';
+  div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;display:flex;flex-direction:column;overflow:hidden;font-family:system-ui,sans-serif';
 
   // Header
   var hdr = document.createElement('div');
-  hdr.style.cssText = 'background:#0D2B5E;color:white;padding:10px 1rem;display:flex;align-items:center;gap:8px;flex-shrink:0';
+  hdr.style.cssText = 'background:#0D2B5E;color:white;padding:10px 1rem;display:flex;align-items:center;gap:10px;flex-shrink:0';
+
   var btnBack = document.createElement('button');
   btnBack.textContent = '← Volver';
-  btnBack.style.cssText = 'background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 12px;font-size:.75rem;font-weight:600;cursor:pointer';
-  btnBack.onclick = function(){ document.getElementById('bracketPreview').remove(); };
-  var title = document.createElement('div');
-  title.style.cssText = 'flex:1;font-size:.85rem;font-weight:700';
-  title.textContent = 'Cuadros — Etapa 2';
+  btnBack.style.cssText = 'background:rgba(255,255,255,.18);color:white;border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:7px 14px;font-size:.78rem;font-weight:600;cursor:pointer;flex-shrink:0';
+  btnBack.onclick = function(){ var el=document.getElementById('bracketPreview'); if(el) el.remove(); };
+
+  var ttl = document.createElement('div');
+  ttl.style.cssText = 'flex:1;font-size:.88rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  ttl.textContent = 'Cuadros — Etapa 2';
+
   var btnDl = document.createElement('button');
   btnDl.id = 'bp-dl-btn';
-  btnDl.textContent = '⬇ Descargar PDF';
-  btnDl.style.cssText = 'background:#B8860B;color:white;border:none;border-radius:6px;padding:6px 14px;font-size:.75rem;font-weight:700;cursor:pointer';
-  btnDl.onclick = function(){ downloadPDFFromPreview(); };
-  hdr.appendChild(btnBack); hdr.appendChild(title); hdr.appendChild(btnDl);
+  btnDl.textContent = '⬇ PDF';
+  btnDl.style.cssText = 'background:#B8860B;color:white;border:none;border-radius:7px;padding:7px 14px;font-size:.78rem;font-weight:700;cursor:pointer;flex-shrink:0';
+  btnDl.onclick = function(){ bpDownloadPDF(); };
 
-  // Cup nav
+  hdr.appendChild(btnBack); hdr.appendChild(ttl); hdr.appendChild(btnDl);
+
+  // Cup tabs
   var nav = document.createElement('div');
-  nav.style.cssText = 'display:flex;gap:6px;padding:8px;overflow-x:auto;flex-shrink:0;background:#f8f9fa;border-bottom:1px solid #e0e0e0';
-  cups.forEach(function(cu) {
+  nav.style.cssText = 'display:flex;gap:6px;padding:8px 10px;overflow-x:auto;flex-shrink:0;background:#f4f6f9;border-bottom:1px solid #dde3ea';
+  CUPS_INFO.forEach(function(cu) {
     var b = document.createElement('button');
     b.textContent = cu.label;
-    b.style.cssText = 'border:1px solid #C0D4E8;border-radius:6px;padding:5px 12px;font-size:.72rem;cursor:pointer;white-space:nowrap;font-weight:500;' + (cu.key===e2CurrentCup ? 'background:#1A56A0;color:white;border-color:#1A56A0' : 'background:#fff;color:#1A56A0');
-    b.onclick = function(){ e2CurrentCup = cu.key; showBracketPreview(); };
+    var isActive = cu.key === e2CurrentCup;
+    b.style.cssText = 'border-radius:6px;padding:5px 12px;font-size:.73rem;cursor:pointer;white-space:nowrap;font-weight:600;border:1px solid ' +
+      (isActive ? '#1A56A0;background:#1A56A0;color:white' : '#C0D4E8;background:white;color:#1A56A0');
+    b.onclick = (function(key){ return function(){ e2CurrentCup=key; showBracketPreview(); }; })(cu.key);
     nav.appendChild(b);
   });
 
-  // Scroll area
+  // Scroll + bracket
   var scroll = document.createElement('div');
-  scroll.style.cssText = 'flex:1;overflow:auto;padding:8px';
-  var inner = document.createElement('div');
-  inner.style.cssText = 'min-width:900px';
-  inner.innerHTML = bracketHTML;
-  scroll.appendChild(inner);
+  scroll.style.cssText = 'flex:1;overflow:auto;-webkit-overflow-scrolling:touch';
 
+  var inner = document.createElement('div');
+  inner.style.cssText = 'padding:10px';
+  inner.innerHTML = bpBuildHTML(e2CurrentCup);
+
+  scroll.appendChild(inner);
   div.appendChild(hdr); div.appendChild(nav); div.appendChild(scroll);
   document.body.appendChild(div);
 }
 
+function bpBuildHTML(cupKey) {
+  var cup = E2_CUPS[cupKey];
+  if (!cup) return '<p style="padding:2rem;color:red">Error: copa no encontrada</p>';
+  var isOro = cup.type==='oro';
+  var accent = isOro ? '#B8860B' : '#7A8FA6';
+  var RO = ['32avos','16vos','8vos','4tos','Semis','Final'];
+  var RL = {'32avos':'32avos','16vos':'16vos de Final','8vos':'Octavos','4tos':'Cuartos','Semis':'Semifinales','Final':'FINAL'};
 
-async function downloadPDFFromPreview() {
-  const btn = document.querySelector('.bp-btn-dl');
-  if (btn) { btn.innerHTML = '⏳...'; btn.disabled = true; }
+  var byRound = {};
+  cup.matches.forEach(function(m){ (byRound[m.round]=byRound[m.round]||[]).push(m); });
+  var rounds = RO.filter(function(r){ return byRound[r]; });
+  var nr = rounds.length;
+  if (!nr) return '<p style="padding:2rem">Sin partidos</p>';
+
+  var nBase = 0;
+  rounds.forEach(function(r){ if(byRound[r].length>nBase) nBase=byRound[r].length; });
+
+  var colW = Math.floor(100/nr);
+  var slotH = Math.max(52, Math.floor(600/nBase));
+  var rowH = Math.min(22, Math.floor(slotH*0.38));
+
+  var html = '<div style="background:#fff;min-width:'+(nr*160)+'px">';
+
+  // Header
+  html += '<div style="background:#0D2B5E;color:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-radius:6px">';
+  html += '<div style="font-size:12px;font-weight:700">THE CHAMPIONSHIP 2026 — ETAPA 2</div>';
+  html += '<div style="background:'+accent+';padding:3px 12px;border-radius:10px;font-size:10px;font-weight:700">'+cup.label.toUpperCase()+'</div>';
+  html += '</div>';
+
+  // Build bracket as table-like structure using flex
+  html += '<div style="display:flex;gap:0;align-items:flex-start">';
+
+  rounds.forEach(function(r, ri) {
+    var ms = byRound[r];
+    var n = ms.length;
+    var sh = (nBase * slotH) / n; // height per match in this round
+
+    html += '<div style="flex:1;min-width:0">';
+    // Round header
+    html += '<div style="background:#1A56A0;color:white;text-align:center;padding:4px 2px;font-size:9px;font-weight:700;margin:0 2px 4px;border-radius:3px">'+(RL[r]||r).toUpperCase()+'</div>';
+
+    ms.forEach(function(m, mi) {
+      var p1=m.p1||''; var p2=m.p2||'';
+      var w=m.winner||'';
+      var t1=!p1; var t2=!p2;
+      var w1=(w&&w===p1); var w2=(w&&w===p2);
+      var top = mi * sh + (sh - rowH*2 - 2) / 2;
+
+      html += '<div style="margin:0 2px;height:'+sh+'px;position:relative">';
+
+      // p1 row
+      var bg1 = t1?'#F5F5F5':(w1?'#E8F5EE':'#EEF4FB');
+      var col1 = w1?'#C0392B':(t1?'#9AA5B1':'#0D2B5E');
+      var fw1 = w1?'700':'400';
+      html += '<div style="position:absolute;top:'+top+'px;left:0;right:0;height:'+rowH+'px;background:'+bg1+';border:1px solid #C0D4E8;border-bottom:none;'+(w1?'border-left:3px solid #C0392B;':'')+';overflow:hidden;display:flex;align-items:center;padding:0 5px;box-sizing:border-box">';
+      html += '<span style="font-size:'+(rowH*0.62)+'px;color:'+col1+';font-weight:'+fw1+';overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">'+(t1?'<em style="color:#9AA5B1;font-style:normal;font-size:9px">por definir</em>':p1)+'</span>';
+      if (w1 && m.score && m.score!=='') html += '<span style="font-size:8px;color:#C0392B;margin-left:3px;flex-shrink:0">'+m.score+'</span>';
+      html += '</div>';
+
+      // divider
+      html += '<div style="position:absolute;top:'+(top+rowH)+'px;left:0;right:0;height:1px;background:#C0D4E8"></div>';
+
+      // p2 row
+      var bg2 = t2?'#F5F5F5':(w2?'#E8F5EE':'#EEF4FB');
+      var col2 = w2?'#C0392B':(t2?'#9AA5B1':'#0D2B5E');
+      var fw2 = w2?'700':'400';
+      html += '<div style="position:absolute;top:'+(top+rowH+1)+'px;left:0;right:0;height:'+rowH+'px;background:'+bg2+';border:1px solid #C0D4E8;border-top:none;'+(w2?'border-left:3px solid #C0392B;':'')+';overflow:hidden;display:flex;align-items:center;padding:0 5px;box-sizing:border-box">';
+      html += '<span style="font-size:'+(rowH*0.62)+'px;color:'+col2+';font-weight:'+fw2+';overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">'+(t2?'<em style="color:#9AA5B1;font-style:normal;font-size:9px">por definir</em>':p2)+'</span>';
+      if (w2 && m.score && m.score!=='') html += '<span style="font-size:8px;color:#C0392B;margin-left:3px;flex-shrink:0">'+m.score+'</span>';
+      html += '</div>';
+
+      html += '</div>'; // match slot
+    });
+
+    html += '</div>'; // round column
+  });
+
+  html += '</div>'; // flex row
+  html += '</div>'; // outer
+  return html;
+}
+
+async function bpDownloadPDF() {
+  var btn = document.getElementById('bp-dl-btn');
+  if (btn) { btn.textContent = '⏳...'; btn.disabled = true; }
   try {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
-    const pw = 420, ph = 297;
-    const cups = [
-      {key:'e2_catA_oro',   label:'Cat. A — Copa de Oro',   type:'oro'},
-      {key:'e2_catA_plata', label:'Cat. A — Copa de Plata', type:'plata'},
-      {key:'e2_catB_oro',   label:'Cat. B — Copa de Oro',   type:'oro'},
-      {key:'e2_catB_plata', label:'Cat. B — Copa de Plata', type:'plata'},
-    ];
-    for (let ci = 0; ci < cups.length; ci++) {
-      const cu = cups[ci];
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1190px;background:#fff;font-family:Helvetica,Arial,sans-serif';
-      wrap.innerHTML = buildBracketHTML(cu.key, cu.label, cu.type);
+    var jsPDF = window.jspdf ? window.jspdf.jsPDF : null;
+    if (!jsPDF) { showToast('Error: jsPDF no cargado'); return; }
+    var pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
+    var pw=420, ph=297;
+    var CUPS_INFO = ['e2_catA_oro','e2_catA_plata','e2_catB_oro','e2_catB_plata'];
+    for (var ci=0; ci<CUPS_INFO.length; ci++) {
+      var key = CUPS_INFO[ci];
+      var cup = E2_CUPS[key];
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;background:#fff';
+      wrap.innerHTML = bpBuildHTML(key);
       document.body.appendChild(wrap);
-      await new Promise(r => setTimeout(r, 250));
-      const canvas = await html2canvas(wrap, {
-        scale: 1.8, useCORS: true, backgroundColor: '#ffffff', logging: false,
-        width: 1190, height: wrap.scrollHeight
-      });
+      await new Promise(function(r){ setTimeout(r,200); });
+      var canvas = await html2canvas(wrap, {scale:1.6,useCORS:true,backgroundColor:'#fff',logging:false,width:1100,height:wrap.scrollHeight});
       document.body.removeChild(wrap);
-      const imgData = canvas.toDataURL('image/png', 0.92);
-      if (ci > 0) pdf.addPage([pw, ph], 'landscape');
-      const imgW = pw;
-      const imgH = (canvas.height * pw) / canvas.width;
-      const scale = imgH > ph ? ph / imgH : 1;
-      const yOff = imgH < ph ? (ph - imgH*scale) / 2 : 0;
-      pdf.addImage(imgData, 'PNG', 0, yOff, imgW * scale, Math.min(imgH * scale, ph));
+      if (ci>0) pdf.addPage([pw,ph],'landscape');
+      var iw=pw, ih=(canvas.height*pw)/canvas.width;
+      var sc = ih>ph ? ph/ih : 1;
+      pdf.addImage(canvas.toDataURL('image/png',0.9),'PNG',0,ih<ph?(ph-ih*sc)/2:0,iw*sc,Math.min(ih*sc,ph));
     }
-    pdf.save('TheChampionship2026_Cuadros_Etapa2.pdf');
+    pdf.save('TheChampionship2026_Cuadros.pdf');
     showToast('✓ PDF descargado');
   } catch(err) {
-    showToast('Error: ' + err.message);
+    showToast('Error: '+err.message);
   } finally {
-    if (btn) { btn.innerHTML = '⬇ PDF'; btn.disabled = false; }
+    if (btn) { btn.textContent = '⬇ PDF'; btn.disabled = false; }
   }
 }
 
 async function downloadE2CuadrosPDF() {
   showBracketPreview();
 }
+
+
 
 
 function _hideSplash() {
