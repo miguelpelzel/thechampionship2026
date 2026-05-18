@@ -1771,93 +1771,84 @@ let e2CurrentCup = 'e2_catA_oro';
 let e2CurrentRound = 'all';
 
 function renderE2Cuadros() {
-  const cups = [
-    {key:'e2_catA_oro',   label:'Cat. A — Oro'},
-    {key:'e2_catA_plata', label:'Cat. A — Plata'},
-    {key:'e2_catB_oro',   label:'Cat. B — Oro'},
-    {key:'e2_catB_plata', label:'Cat. B — Plata'},
+  var cups = [
+    {key:'e2_catA_oro',   label:'Cat. A - Oro'},
+    {key:'e2_catA_plata', label:'Cat. A - Plata'},
+    {key:'e2_catB_oro',   label:'Cat. B - Oro'},
+    {key:'e2_catB_plata', label:'Cat. B - Plata'},
   ];
+  var cup = E2_CUPS[e2CurrentCup];
+  var isOro = cup.type === 'oro';
+  var ORDER = ['32avos','16vos','8vos','4tos','Semis','Final'];
+  var LABELS = {'32avos':'32avos de Final','16vos':'16avos de Final','8vos':'8vos de Final','4tos':'4tos de Final','Semis':'Semis de Final','Final':'Final'};
+  var real = cup.matches.filter(function(m){ return !isBYE(m.score) && !(isTBD(m.p1)&&isTBD(m.p2)); });
+  var avail = ORDER.filter(function(r){ return real.some(function(m){ return m.round===r; }); });
+  var done  = real.filter(function(m){ return m.done; }).length;
+  var total = real.length;
+  var pend  = total - done;
+  var pct   = total > 0 ? Math.round(done/total*100) : 0;
+  var pendByR = {};
+  real.filter(function(m){ return !m.done; }).forEach(function(m){ pendByR[m.round]=(pendByR[m.round]||0)+1; });
 
-  const cup = E2_CUPS[e2CurrentCup];
-  const isOro = cup.type === 'oro';
+  var cupNavHtml = '<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 1rem;border-bottom:1px solid var(--border);background:var(--white)">';
+  cups.forEach(function(cu) {
+    var activeClass = e2CurrentCup===cu.key ? ' active-'+E2_CUPS[cu.key].type : '';
+    cupNavHtml += '<button class="cup-tab'+activeClass+'" onclick="e2CurrentCup=\''+cu.key+'\';e2CurrentRound=\'all\';renderE2Cuadros()">'+cu.label+'</button>';
+  });
+  cupNavHtml += '</div>';
 
-  const ORDER = ['32avos','16vos','8vos','4tos','Semis','Final'];
-  const LABELS = {'32avos':'32avos de Final','16vos':'16avos de Final','8vos':'8vos de Final','4tos':'4tos de Final','Semis':'Semis de Final','Final':'Final'};
+  var rtabs = '';
+  ['all'].concat(avail).forEach(function(r) {
+    var p = r==='all' ? pend : (pendByR[r]||0);
+    var badge = p>0 ? '<span class="badge-pend">'+p+'</span>' : '';
+    var active = e2CurrentRound===r ? 'active' : '';
+    var lbl = r==='all' ? 'Todos' : r;
+    rtabs += '<button class="rtab '+active+'" onclick="e2SetRound(\''+r+'\')">'+lbl+badge+'</button>';
+  });
 
-  // Real matches (not TBD vs TBD)
-  const real = cup.matches.filter(m => !isBYE(m.score) && !(isTBD(m.p1)&&isTBD(m.p2)));
-  const avail = ORDER.filter(r => real.some(m => m.round === r));
-  const done = real.filter(m => m.done).length;
-  const total = real.length;
-  const pend  = total - done;
-  const pct   = total > 0 ? Math.round(done/total*100) : 0;
-
-  // Fix round counts: each round should show ONLY matches in that round
-  const pendByR = {};
-  real.filter(m => !m.done).forEach(m => { pendByR[m.round] = (pendByR[m.round]||0)+1; });
-
-  // Cup nav tabs
-  const cupNavHtml = `<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 1rem;border-bottom:1px solid var(--border);background:var(--white)">
-    ${cups.map(cu => `<button class="cup-tab${e2CurrentCup===cu.key?' active-'+E2_CUPS[cu.key].type:''}"
-      onclick="e2CurrentCup='${cu.key}';e2CurrentRound='all';renderE2Cuadros()">${cu.label}</button>`).join('')}
-  </div>`;
-
-  // Round filter tabs (same style as E1)
-  const rtabs = ['all',...avail].map(r => {
-    const p = r==='all' ? pend : (pendByR[r]||0);
-    const badge = p>0 ? `<span class="badge-pend">${p}</span>` : '';
-    return `<button class="rtab ${e2CurrentRound===r?'active':''}" onclick="e2SetRound('${r}')">${r==='all'?'Todos':r}${badge}</button>`;
-  }).join('');
-
-  // Matches to show
-  const filtered = (e2CurrentRound==='all' ? real : real.filter(m=>m.round===e2CurrentRound));
-
-  let matchHtml = '';
+  var filtered = e2CurrentRound==='all' ? real : real.filter(function(m){ return m.round===e2CurrentRound; });
+  var matchHtml = '';
   if (e2CurrentRound === 'all') {
-    avail.forEach(r => {
-      const rms = filtered.filter(m=>m.round===r);
+    avail.forEach(function(r) {
+      var rms = filtered.filter(function(m){ return m.round===r; });
       if (!rms.length) return;
-      const rd = rms.filter(m=>m.done).length;
-      matchHtml += `<div class="round-group">
-        <div class="round-header">
-          <div class="rh-title">${LABELS[r]||r}</div>
-          <div class="rh-count">${rd}/${rms.length} jugados</div>
-        </div>
-        ${rms.map(m => e2CupCardHtml(m)).join('')}
-      </div>`;
+      var rd = rms.filter(function(m){ return m.done; }).length;
+      matchHtml += '<div class="round-group"><div class="round-header"><div class="rh-title">'+(LABELS[r]||r)+'</div><div class="rh-count">'+rd+'/'+rms.length+' jugados</div></div>';
+      rms.forEach(function(m){ matchHtml += e2CupCardHtml(m); });
+      matchHtml += '</div>';
     });
   } else {
-    const rms = filtered;
-    const rd = rms.filter(m=>m.done).length;
-    matchHtml = `<div class="round-group">
-      <div class="round-header">
-        <div class="rh-title">${LABELS[e2CurrentRound]||e2CurrentRound}</div>
-        <div class="rh-count">${rd}/${rms.length} jugados</div>
-      </div>
-      ${rms.map(m => e2CupCardHtml(m)).join('')}
-    </div>`;
+    var rms2 = filtered;
+    var rd2 = rms2.filter(function(m){ return m.done; }).length;
+    matchHtml = '<div class="round-group"><div class="round-header"><div class="rh-title">'+(LABELS[e2CurrentRound]||e2CurrentRound)+'</div><div class="rh-count">'+rd2+'/'+rms2.length+' jugados</div></div>';
+    rms2.forEach(function(m){ matchHtml += e2CupCardHtml(m); });
+    matchHtml += '</div>';
   }
 
-  document.getElementById('main').innerHTML = `
-    ${cupNavHtml}
-    <div class="cup-hero">
-      <div class="cup-hero-top">
-        <div class="cup-hero-title">${isOro?'🥇':'🥈'} ${cup.label}</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div class="cup-badge badge-${cup.type}">${isOro?'Copa Oro':'Copa Plata'}</div>
-          <button onclick="downloadE2CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">📥 PDF</button>
-        </div>
-      </div>
-      <div class="progress-track"><div class="progress-fill fill-${cup.type}" style="width:${pct}%"></div></div>
-      <div class="cup-stats-row">
-        <div class="cup-stat"><div class="cs-val">${done}</div><div class="cs-lbl">Jugados</div></div>
-        <div class="cup-stat"><div class="cs-val" style="color:${pend>0?'var(--orange)':'var(--green)'}">${pend}</div><div class="cs-lbl">Pendientes</div></div>
-        <div class="cup-stat"><div class="cs-val">${total}</div><div class="cs-lbl">Total</div></div>
-        <div class="cup-stat"><div class="cs-val">${pct}%</div><div class="cs-lbl">Avance</div></div>
-      </div>
-    </div>
-    <div class="round-nav">${rtabs}</div>
-    <div class="draw-content">${matchHtml||'<div class="empty">Sin partidos</div>'}</div>`;
+  var pendColor = pend>0 ? 'var(--orange)' : 'var(--green)';
+  var cupIcon = isOro ? String.fromCodePoint(0x1F947) : String.fromCodePoint(0x1F948);
+  var cupBadge = isOro ? 'Copa Oro' : 'Copa Plata';
+  var pdfBtn = '<button onclick="downloadE2CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer">Descargar PDF</button>';
+
+  document.getElementById('main').innerHTML =
+    cupNavHtml +
+    '<div class="cup-hero">'+
+      '<div class="cup-hero-top">'+
+        '<div class="cup-hero-title">'+cupIcon+' '+cup.label+'</div>'+
+        '<div style="display:flex;gap:8px;align-items:center">'+
+          '<div class="cup-badge badge-'+cup.type+'">'+cupBadge+'</div>'+pdfBtn+
+        '</div>'+
+      '</div>'+
+      '<div class="progress-track"><div class="progress-fill fill-'+cup.type+'" style="width:'+pct+'%"></div></div>'+
+      '<div class="cup-stats-row">'+
+        '<div class="cup-stat"><div class="cs-val">'+done+'</div><div class="cs-lbl">Jugados</div></div>'+
+        '<div class="cup-stat"><div class="cs-val" style="color:'+pendColor+'">'+pend+'</div><div class="cs-lbl">Pendientes</div></div>'+
+        '<div class="cup-stat"><div class="cs-val">'+total+'</div><div class="cs-lbl">Total</div></div>'+
+        '<div class="cup-stat"><div class="cs-val">'+pct+'%</div><div class="cs-lbl">Avance</div></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="round-nav">'+rtabs+'</div>'+
+    '<div class="draw-content">'+(matchHtml||'<div class="empty">Sin partidos</div>')+'</div>';
 }
 
 function e2SetRound(r) { e2CurrentRound = r; renderE2Cuadros(); }
