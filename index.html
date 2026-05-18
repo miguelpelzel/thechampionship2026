@@ -329,7 +329,7 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     <button class="bn-item"        id="bn-back-e1" onclick="goHome()">        <span class="bn-icon">🏠</span><span class="bn-label">Inicio</span></button>
   </nav>
   <nav class="bottom-nav" id="nav-e2" style="display:none">
-    <button class="bn-item"        id="e2bn-cuadros"    onclick="e2NavView('cuadros')">  <span class="bn-icon">🎯</span><span class="bn-label">Cuadros</span></button>
+    <button class="bn-item"        id="e2bn-cuadros"    onclick="e2View='cuadros';document.querySelectorAll('#nav-e2 .bn-item').forEach(function(el){el.classList.remove('active');});document.getElementById('e2bn-cuadros').classList.add('active');renderE2Cuadros();">  <span class="bn-icon">🎯</span><span class="bn-label">Cuadros</span></button>
     <button class="bn-item active" id="e2bn-grupos"     onclick="e2NavView('grupos')">    <span class="bn-icon">👥</span><span class="bn-label">Grupos</span></button>
     <button class="bn-item"        id="e2bn-partidos"   onclick="e2NavView('partidos')">  <span class="bn-icon">🎾</span><span class="bn-label">Partidos</span></button>
     <button class="bn-item"        id="e2bn-posiciones" onclick="e2NavView('posiciones')"><span class="bn-icon">📋</span><span class="bn-label">Posiciones</span></button>
@@ -1775,6 +1775,7 @@ let e2CurrentCup = 'e2_catA_oro';
 let e2CurrentRound = 'all';
 
 function renderE2Cuadros() {
+  try {
   var cups = [
     {key:'e2_catA_oro',   label:'Cat. A - Oro'},
     {key:'e2_catA_plata', label:'Cat. A - Plata'},
@@ -1853,6 +1854,11 @@ function renderE2Cuadros() {
     '</div>'+
     '<div class="round-nav">'+rtabs+'</div>'+
     '<div class="draw-content">'+(matchHtml||'<div class="empty">Sin partidos</div>')+'</div>';
+  } catch(e) {
+    console.error("renderE2Cuadros error:", e);
+    var el = document.getElementById('main');
+    if(el) el.innerHTML = '<div style="padding:2rem;color:red">Error al cargar Cuadros: ' + e.message + '</div>';
+  }
 }
 
 function e2SetRound(r) { e2CurrentRound = r; renderE2Cuadros(); }
