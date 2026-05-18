@@ -76,6 +76,7 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
 .cs-val{font-size:1.05rem;font-weight:700;line-height:1.1}
 .cs-lbl{font-size:.56rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
 /* DRAW */
+.empty-round{padding:1rem 1.2rem;color:var(--muted);font-size:.85rem;font-style:italic;}
 .draw-content{padding:1rem}
 .round-group{margin-bottom:1.4rem}
 .round-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:6px;border-bottom:2px solid var(--blue);margin-bottom:10px}
@@ -1788,7 +1789,7 @@ function renderE2Cuadros() {
   var ORDER = ['32avos','16vos','8vos','4tos','Semis','Final'];
   var LABELS = {'32avos':'32avos de Final','16vos':'16avos de Final','8vos':'8vos de Final','4tos':'4tos de Final','Semis':'Semis de Final','Final':'Final'};
   var real = cup.matches.filter(function(m){ return !isBYE(m.score) && !(isTBD(m.p1)&&isTBD(m.p2)); });
-  var avail = ORDER.filter(function(r){ return real.some(function(m){ return m.round===r; }); });
+  var avail = ORDER.filter(function(r){ return cup.matches.some(function(m){ return m.round===r; }); });
   var done  = real.filter(function(m){ return m.done; }).length;
   var total = real.length;
   var pend  = total - done;
@@ -1816,18 +1817,25 @@ function renderE2Cuadros() {
   var matchHtml = '';
   if (e2CurrentRound === 'all') {
     avail.forEach(function(r) {
-      var rms = filtered.filter(function(m){ return m.round===r; });
-      if (!rms.length) return;
+      var rms = real.filter(function(m){ return m.round===r; });
       var rd = rms.filter(function(m){ return m.done; }).length;
       matchHtml += '<div class="round-group"><div class="round-header"><div class="rh-title">'+(LABELS[r]||r)+'</div><div class="rh-count">'+rd+'/'+rms.length+' jugados</div></div>';
-      rms.forEach(function(m){ matchHtml += e2CupCardHtml(m); });
+      if (rms.length === 0) {
+        matchHtml += '<div class="empty-round">Sin partidos definidos aun</div>';
+      } else {
+        rms.forEach(function(m){ matchHtml += e2CupCardHtml(m); });
+      }
       matchHtml += '</div>';
     });
   } else {
-    var rms2 = filtered;
+    var rms2 = real.filter(function(m){ return m.round===e2CurrentRound; });
     var rd2 = rms2.filter(function(m){ return m.done; }).length;
     matchHtml = '<div class="round-group"><div class="round-header"><div class="rh-title">'+(LABELS[e2CurrentRound]||e2CurrentRound)+'</div><div class="rh-count">'+rd2+'/'+rms2.length+' jugados</div></div>';
-    rms2.forEach(function(m){ matchHtml += e2CupCardHtml(m); });
+    if (rms2.length === 0) {
+      matchHtml += '<div class="empty-round">Sin partidos definidos aun</div>';
+    } else {
+      rms2.forEach(function(m){ matchHtml += e2CupCardHtml(m); });
+    }
     matchHtml += '</div>';
   }
 
