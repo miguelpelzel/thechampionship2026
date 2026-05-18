@@ -1758,108 +1758,143 @@ const E2_CUPS={"e2_catA_oro":{"label":"Cat. A - Copa de Oro","type":"oro","match
 
 // ── E2 CUADROS ────────────────────────────────────────────────────────────────
 let e2CurrentCup = 'e2_catA_oro';
+let e2CurrentRound = 'all';
 
 function renderE2Cuadros() {
-  // Cup nav tabs
   const cups = [
-    {key:'e2_catA_oro',  label:'Cat. A — Oro'},
-    {key:'e2_catA_plata',label:'Cat. A — Plata'},
-    {key:'e2_catB_oro',  label:'Cat. B — Oro'},
-    {key:'e2_catB_plata',label:'Cat. B — Plata'},
+    {key:'e2_catA_oro',   label:'Cat. A — Oro'},
+    {key:'e2_catA_plata', label:'Cat. A — Plata'},
+    {key:'e2_catB_oro',   label:'Cat. B — Oro'},
+    {key:'e2_catB_plata', label:'Cat. B — Plata'},
   ];
-  const cupNav = `<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 1rem">
-    ${cups.map(c=>`<button class="cup-tab${e2CurrentCup===c.key?' active-'+E2_CUPS[c.key].type:''}"
-      onclick="e2CurrentCup='${c.key}';renderE2Cuadros()">${c.label}</button>`).join('')}
-  </div>`;
 
   const cup = E2_CUPS[e2CurrentCup];
-  const isOro = cup.type==='oro';
+  const isOro = cup.type === 'oro';
 
-  // Group matches by round
-  const byRound = {};
-  cup.matches.forEach(m => {
-    if(!byRound[m.round]) byRound[m.round]=[];
-    byRound[m.round].push(m);
-  });
+  const ORDER = ['32avos','16vos','8vos','4tos','Semis','Final'];
+  const LABELS = {'32avos':'32avos de Final','16vos':'16avos de Final','8vos':'8vos de Final','4tos':'4tos de Final','Semis':'Semis de Final','Final':'Final'};
 
-  const roundOrder = ['32avos','16vos','8vos','4tos','Semis','Final'];
-  // Only show rounds that exist in this cup
-  const existingRounds = new Set(cup.matches.map(m=>m.round));
-  const roundLabels = {
-    '32avos':'32avos de Final','16vos':'16avos de Final','8vos':'8vos de Final',
-    '4tos':'4tos de Final','Semis':'Semis de Final','Final':'Final'
-  };
+  // Real matches (not TBD vs TBD)
+  const real = cup.matches.filter(m => !isBYE(m.score) && !(isTBD(m.p1)&&isTBD(m.p2)));
+  const avail = ORDER.filter(r => real.some(m => m.round === r));
+  const done = real.filter(m => m.done).length;
+  const total = real.length;
+  const pend  = total - done;
+  const pct   = total > 0 ? Math.round(done/total*100) : 0;
 
-  // Stats
-  const allPlayed = cup.matches.filter(m=>m.done&&!isBYE(m.score));
-  const pending = cup.matches.filter(m=>!m.done);
+  // Fix round counts: each round should show ONLY matches in that round
+  const pendByR = {};
+  real.filter(m => !m.done).forEach(m => { pendByR[m.round] = (pendByR[m.round]||0)+1; });
 
-  let html = `<div style="background:var(--white);border-bottom:1px solid var(--border);padding:10px 1rem 8px">
-    <div style="font-size:.9rem;font-weight:700">${cup.label}</div>
-    <div style="display:flex;gap:1rem;margin-top:4px;font-size:.72rem;color:var(--muted)">
-      <span>${allPlayed.length} jugados</span><span>${pending.length} pendientes</span>
-    </div>
+  // Cup nav tabs
+  const cupNavHtml = `<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 1rem;border-bottom:1px solid var(--border);background:var(--white)">
+    ${cups.map(cu => `<button class="cup-tab${e2CurrentCup===cu.key?' active-'+E2_CUPS[cu.key].type:''}"
+      onclick="e2CurrentCup='${cu.key}';e2CurrentRound='all';renderE2Cuadros()">${cu.label}</button>`).join('')}
   </div>`;
 
-  roundOrder.forEach(round => {
-    if(!existingRounds.has(round)) return;
-    const ms = byRound[round];
-    if(!ms||ms.length===0) return;
-    const played = ms.filter(m=>m.done&&!isBYE(m.score)).length;
-    html += `<div class="phase-section">
-      <div class="phase-title">
-        <span>${roundLabels[round]||round}</span>
-        <span style="font-weight:400;color:var(--muted);font-size:.7rem">${played}/${ms.filter(m=>!isBYE(m.score)).length} jugados</span>
-      </div>`;
-    ms.forEach(m => {
-      if(isBYE(m.score)) return; // skip BYE matches
-      const isSTB = m.score&&m.score!=='WO'&&m.score.trim().split(/\s+/).length===3;
-      const isDone = m.done&&m.score;
-      const statusBadge = isDone
-        ? (m.score==='WO'?'<span class="badge-wo">W.O.</span>'
-          :(isSTB?'<span class="badge-stb">STB</span>'
-          :'<span class="badge-ok">FINALIZADO</span>'))
-        : (m.p1==='Por definir'||m.p2==='Por definir'
-          ?'<span class="badge-tbd">POR DEFINIR</span>'
-          :'<span class="badge-pend">PENDIENTE</span>');
+  // Round filter tabs (same style as E1)
+  const rtabs = ['all',...avail].map(r => {
+    const p = r==='all' ? pend : (pendByR[r]||0);
+    const badge = p>0 ? `<span class="badge-pend">${p}</span>` : '';
+    return `<button class="rtab ${e2CurrentRound===r?'active':''}" onclick="e2SetRound('${r}')">${r==='all'?'Todos':r}${badge}</button>`;
+  }).join('');
 
-      const scoreHtml = isDone ? renderScoreBadges(m.score, m.winner, m.p1, m.p2) : '';
-      const p1bold = isDone&&m.winner===m.p1;
-      const p2bold = isDone&&m.winner===m.p2;
+  // Matches to show
+  const filtered = (e2CurrentRound==='all' ? real : real.filter(m=>m.round===e2CurrentRound));
 
-      // Admin controls
-      let footer = '';
-      if(isAdmin&&!m.done&&m.p1!=='Por definir'&&m.p2!=='Por definir') {
-        if(!editingE2CupId||editingE2CupId!==m.id) {
-          footer = `<button class="btn-load" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">+ Cargar resultado</button>`;
-        } else {
-          footer = `<div class="score-form"><input class="input" id="e2cup-inp-${m.id}"
-            placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2"
-            onkeydown="if(event.key==='Enter')saveE2CupScore('${m.id}','${e2CurrentCup}')"/>
-            <button class="btn-ok" onclick="saveE2CupScore('${m.id}','${e2CurrentCup}')">OK</button>
-            <button class="btn-cancel" onclick="editingE2CupId=null;renderE2Cuadros()">✕</button></div>
-            <div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
-        }
-      } else if(isAdmin&&m.done&&!isBYE(m.score)) {
-        footer = `<button class="btn-edit" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">✎ Editar</button>
-          <button class="btn-cancel" style="margin-left:6px" onclick="deleteE2CupScore('${m.id}','${e2CurrentCup}')">✕ Borrar</button>`;
-      }
-
-      html += `<div class="match-card">
-        <div class="match-card-header">${statusBadge}</div>
-        <div class="match-player ${p1bold?'match-player--winner':''}" onclick="openPlayer('${m.p1.replace(/'/g,"\'")}')">
-          ${m.p1}${scoreHtml&&p1bold?'<span class="match-score">'+renderScoreBadges(m.score,m.winner,m.p1,m.p2)+'</span>':''}
+  let matchHtml = '';
+  if (e2CurrentRound === 'all') {
+    avail.forEach(r => {
+      const rms = filtered.filter(m=>m.round===r);
+      if (!rms.length) return;
+      const rd = rms.filter(m=>m.done).length;
+      matchHtml += `<div class="round-group">
+        <div class="round-header">
+          <div class="rh-title">${LABELS[r]||r}</div>
+          <div class="rh-count">${rd}/${rms.length} jugados</div>
         </div>
-        <div class="match-player ${p2bold?'match-player--winner':''}" onclick="openPlayer('${m.p2.replace(/'/g,"\'")}')">
-          ${m.p2}${scoreHtml&&p2bold?'<span class="match-score">'+renderScoreBadges(m.score,m.winner,m.p1,m.p2)+'</span>':''}
-        </div>
-        ${footer?`<div class="match-footer">${footer}</div>`:''}
+        ${rms.map(m => e2CupCardHtml(m)).join('')}
       </div>`;
     });
-    html += '</div>';
-  });
+  } else {
+    const rms = filtered;
+    const rd = rms.filter(m=>m.done).length;
+    matchHtml = `<div class="round-group">
+      <div class="round-header">
+        <div class="rh-title">${LABELS[e2CurrentRound]||e2CurrentRound}</div>
+        <div class="rh-count">${rd}/${rms.length} jugados</div>
+      </div>
+      ${rms.map(m => e2CupCardHtml(m)).join('')}
+    </div>`;
+  }
 
-  document.getElementById('main').innerHTML = cupNav + html;
+  document.getElementById('main').innerHTML = `
+    ${cupNavHtml}
+    <div class="cup-hero">
+      <div class="cup-hero-top">
+        <div class="cup-hero-title">${isOro?'🥇':'🥈'} ${cup.label}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="cup-badge badge-${cup.type}">${isOro?'Copa Oro':'Copa Plata'}</div>
+          <button onclick="downloadE2CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">📥 PDF</button>
+        </div>
+      </div>
+      <div class="progress-track"><div class="progress-fill fill-${cup.type}" style="width:${pct}%"></div></div>
+      <div class="cup-stats-row">
+        <div class="cup-stat"><div class="cs-val">${done}</div><div class="cs-lbl">Jugados</div></div>
+        <div class="cup-stat"><div class="cs-val" style="color:${pend>0?'var(--orange)':'var(--green)'}">${pend}</div><div class="cs-lbl">Pendientes</div></div>
+        <div class="cup-stat"><div class="cs-val">${total}</div><div class="cs-lbl">Total</div></div>
+        <div class="cup-stat"><div class="cs-val">${pct}%</div><div class="cs-lbl">Avance</div></div>
+      </div>
+    </div>
+    <div class="round-nav">${rtabs}</div>
+    <div class="draw-content">${matchHtml||'<div class="empty">Sin partidos</div>'}</div>`;
+}
+
+function e2SetRound(r) { e2CurrentRound = r; renderE2Cuadros(); }
+
+function e2CupCardHtml(m) {
+  const isSTB = m.score&&m.score!=='WO'&&m.score.trim().split(/\s+/).length===3;
+  const isDone = m.done && m.score;
+  const isTbd = isTBD(m.p1)||isTBD(m.p2);
+  const statusBadge = isDone
+    ? (m.score==='WO'?'<span class="badge-wo">W.O.</span>'
+      :(isSTB?'<span class="badge-stb">STB</span>'
+      :'<span class="badge-ok">FINALIZADO</span>'))
+    : (isTbd?'<span class="badge-tbd">POR DEFINIR</span>'
+      :'<span class="badge-pend">PENDIENTE</span>');
+
+  const p1bold = isDone && m.winner===m.p1;
+  const p2bold = isDone && m.winner===m.p2;
+  const scoreHtml = isDone ? renderScoreBadges(m.score, m.winner, m.p1, m.p2) : '';
+
+  let footer = '';
+  const editingThis = editingE2CupId === m.id;
+  if (isAdmin && !m.done && !isTbd) {
+    if (!editingThis) {
+      footer = `<button class="btn-load" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">+ Cargar resultado</button>`;
+    } else {
+      footer = `<div class="score-form"><input class="input" id="e2cup-inp-${m.id}"
+        placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2"
+        onkeydown="if(event.key==='Enter')saveE2CupScore('${m.id}','${e2CurrentCup}')"/>
+        <button class="btn-ok" onclick="saveE2CupScore('${m.id}','${e2CurrentCup}')">OK</button>
+        <button class="btn-cancel" onclick="editingE2CupId=null;renderE2Cuadros()">✕</button></div>
+        <div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
+    }
+  } else if (isAdmin && isDone) {
+    footer = `<button class="btn-edit" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">✎ Editar</button>
+      <button class="btn-cancel" style="margin-left:6px" onclick="deleteE2CupScore('${m.id}','${e2CurrentCup}')">✕ Borrar</button>`;
+  }
+
+  return `<div class="result-card">
+    <div class="rc-header">${statusBadge}</div>
+    <div class="rc-player ${p1bold?'rc-winner':''}" onclick="openPlayer('${m.p1.replace(/'/g,"\'")}')">
+      <span>${m.p1}</span>${p1bold?`<span class="rc-score">${scoreHtml}</span>`:''}
+    </div>
+    <div class="rc-player ${p2bold?'rc-winner':''}" onclick="openPlayer('${m.p2.replace(/'/g,"\'")}')">
+      <span>${m.p2}</span>${p2bold?`<span class="rc-score">${scoreHtml}</span>`:''}
+    </div>
+    ${footer?`<div class="rc-footer">${footer}</div>`:''}
+  </div>`;
 }
 
 let editingE2CupId = null;
@@ -1867,43 +1902,38 @@ let editingE2CupId = null;
 function startE2CupEdit(id, cupKey) {
   editingE2CupId = id;
   renderE2Cuadros();
-  setTimeout(()=>{const el=document.getElementById('e2cup-inp-'+id);if(el)el.focus();},50);
+  setTimeout(()=>{ const el=document.getElementById('e2cup-inp-'+id); if(el)el.focus(); }, 50);
 }
 
 function saveE2CupScore(id, cupKey) {
   const el = document.getElementById('e2cup-inp-'+id);
-  if(!el) return;
+  if (!el) return;
   const raw = el.value.trim();
   const cup = E2_CUPS[cupKey];
   const m = cup.matches.find(x=>x.id===id);
-  if(!m) return;
+  if (!m) return;
 
   const woMatch = raw.toUpperCase().replace(/\s+/g,' ').match(/^W\.?O\.?\s*([12])$/);
-  if(woMatch) {
-    const woNum=parseInt(woMatch[1]);
+  if (woMatch) {
+    const woNum = parseInt(woMatch[1]);
     m.score='WO'; m.done=true; m.winner=woNum===1?m.p2:m.p1;
     editingE2CupId=null;
-    propagateE2Cup(cup, m);
-    if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, 'WO', m.winner);
+    propagateE2Cup(cup,m);
+    if(window.fbSaveMatch) window.fbSaveMatch(cupKey,id,'WO',m.winner);
     showToast('✓ W.O. — '+m.winner+' avanza'); renderE2Cuadros(); return;
   }
-  if(!raw||!/\d+-\d+/.test(raw)){showToast('Formato inválido');el.focus();return;}
+  if (!raw||!/\d+-\d+/.test(raw)){showToast('Formato inválido');el.focus();return;}
   const parts=raw.split(/\s+/);
   const isSTB=parts.length===3;
-  let winner;
-  let scores=isSTB?parts.slice(0,2):parts;
   let p1sets=0,p2sets=0;
-  for(const s of scores){
-    const [a,b]=s.split('-').map(Number);
-    if(a>b)p1sets++;else p2sets++;
-  }
+  const scores=isSTB?parts.slice(0,2):parts;
+  for(const s of scores){const[a,b]=s.split('-').map(Number);if(a>b)p1sets++;else p2sets++;}
   if(isSTB){const[a,b]=parts[2].split('-').map(Number);if(a>b)p1sets++;else p2sets++;}
-  winner=p1sets>p2sets?m.p1:m.p2;
-  m.score=raw; m.done=true; m.winner=winner;
+  m.score=raw; m.done=true; m.winner=p1sets>p2sets?m.p1:m.p2;
   editingE2CupId=null;
-  propagateE2Cup(cup, m);
-  if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, raw, winner);
-  showToast('✓ '+winner+' avanza'); renderE2Cuadros();
+  propagateE2Cup(cup,m);
+  if(window.fbSaveMatch) window.fbSaveMatch(cupKey,id,raw,m.winner);
+  showToast('✓ '+m.winner+' avanza'); renderE2Cuadros();
 }
 
 function deleteE2CupScore(id, cupKey) {
@@ -1912,18 +1942,17 @@ function deleteE2CupScore(id, cupKey) {
   const m=cup.matches.find(x=>x.id===id);
   if(!m) return;
   m.score=''; m.done=false; m.winner=null;
-  if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, '__deleted__', '__deleted__');
+  if(window.fbSaveMatch) window.fbSaveMatch(cupKey,id,'__deleted__','__deleted__');
   showToast('✓ Resultado borrado'); renderE2Cuadros();
 }
 
 function propagateE2Cup(cup, finishedMatch) {
-  // Find next round match and fill in winner
   const ORDER=['32avos','16vos','8vos','4tos','Semis','Final'];
   const rIdx=ORDER.indexOf(finishedMatch.round);
   if(rIdx<0||rIdx>=ORDER.length-1) return;
   const nextRound=ORDER[rIdx+1];
   const sameRound=cup.matches.filter(m=>m.round===finishedMatch.round&&!isBYE(m.score));
-  const pos=sameRound.indexOf(sameRound.find(m=>m.id===finishedMatch.id));
+  const pos=sameRound.findIndex(m=>m.id===finishedMatch.id);
   if(pos<0) return;
   const nextMatches=cup.matches.filter(m=>m.round===nextRound);
   const nextIdx=Math.floor(pos/2);
@@ -1933,6 +1962,16 @@ function propagateE2Cup(cup, finishedMatch) {
   if(slot===0) next.p1=finishedMatch.winner;
   else next.p2=finishedMatch.winner;
 }
+
+function downloadE2CuadrosPDF() {
+  // Generate PDF on the fly using a server-side approach
+  // Since we can't generate PDF client-side, open the static PDF
+  const link = document.createElement('a');
+  link.href = 'cuadros_e2.pdf';
+  link.download = 'TheChampionship2026_Cuadros_Etapa2.pdf';
+  link.click();
+}
+
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show splash: wait for image then show for 2s, then fade to menu
