@@ -39,6 +39,16 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
 .logo-title{font-size:1rem;font-weight:700;color:var(--text)}
 .logo-sub{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
 .header-badge{background:var(--blue);color:white;font-size:0.6rem;font-weight:600;padding:3px 10px;border-radius:12px;text-transform:uppercase}
+.bracket-preview{position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;display:flex;flex-direction:column;overflow:hidden}
+.bp-header{background:#0D2B5E;color:white;padding:10px 1rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px}
+.bp-title{font-size:.85rem;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bp-btn{background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 12px;font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bp-btn:active{background:rgba(255,255,255,.25)}
+.bp-btn-dl{background:#B8860B;border-color:#B8860B}
+.bp-scroll{flex:1;overflow:auto;padding:8px}
+.bp-cup-nav{display:flex;gap:6px;padding:8px 8px 0;overflow-x:auto;flex-shrink:0;background:#f8f9fa;border-bottom:1px solid #e0e0e0}
+.bp-cup-btn{background:#fff;border:1px solid #C0D4E8;border-radius:6px;padding:5px 10px;font-size:.72rem;cursor:pointer;white-space:nowrap;color:#1A56A0;font-weight:500}
+.bp-cup-btn.active{background:#1A56A0;color:white;border-color:#1A56A0}
 /* BOTTOM NAV */
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border);display:flex;padding-bottom:var(--safe-bottom);z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
 .bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:"Inter",sans-serif;transition:color .15s}
@@ -295,6 +305,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
       else setTimeout(()=>window.fbListenE2(),500);
     });
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body style="background:#ffffff">
 <div id="app-loading" style="position:fixed;inset:0;z-index:9999;overflow:hidden;background:#1a5c1a">
@@ -1970,20 +1982,93 @@ function propagateE2Cup(cup, finishedMatch) {
   else next.p2=finishedMatch.winner;
 }
 
-function downloadE2CuadrosPDF() {
-  // Generate PDF on the fly using a server-side approach
-  // Since we can't generate PDF client-side, open the static PDF
-  const link = document.createElement('a');
-  link.href = 'cuadros_e2.pdf';
-  link.download = 'TheChampionship2026_Cuadros_Etapa2.pdf';
-  link.click();
+function showBracketPreview() {
+  // Build preview screen
+  const cups = [
+    {key:'e2_catA_oro',   label:'Cat. A — Oro',   type:'oro'},
+    {key:'e2_catA_plata', label:'Cat. A — Plata', type:'plata'},
+    {key:'e2_catB_oro',   label:'Cat. B — Oro',   type:'oro'},
+    {key:'e2_catB_plata', label:'Cat. B — Plata', type:'plata'},
+  ];
+  let currentPreviewCup = e2CurrentCup;
+
+  function renderPreview() {
+    const cu = cups.find(c=>c.key===currentPreviewCup) || cups[0];
+    const bracketHTML = buildBracketHTML(cu.key, cu.label, cu.type);
+    const navBtns = cups.map(c=>`<button class="bp-cup-btn${c.key===currentPreviewCup?' active':''}"
+      onclick="document.getElementById('bp-cup-key').value='${c.key}';document.getElementById('bp-render-btn').click()">${c.label}</button>`).join('');
+
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="bracket-preview" id="bracketPreview">
+        <div class="bp-header">
+          <button class="bp-btn" onclick="document.getElementById('bracketPreview').remove()">← Volver</button>
+          <div class="bp-title">Cuadros — Etapa 2</div>
+          <button class="bp-btn bp-btn-dl" onclick="downloadPDFFromPreview()">⬇ PDF</button>
+        </div>
+        <div class="bp-cup-nav">${navBtns}</div>
+        <input type="hidden" id="bp-cup-key" value="${currentPreviewCup}">
+        <button id="bp-render-btn" style="display:none" onclick="
+          currentPreviewCup=document.getElementById('bp-cup-key').value;
+          document.getElementById('bracketPreview').remove();
+          showBracketPreview();
+        "></button>
+        <div class="bp-scroll" id="bp-scroll-area">
+          <div id="bp-bracket-content" style="min-width:900px">
+            ${bracketHTML}
+          </div>
+        </div>
+      </div>`);
+  }
+  renderPreview();
+}
+
+async function downloadPDFFromPreview() {
+  const btn = document.querySelector('.bp-btn-dl');
+  if (btn) { btn.innerHTML = '⏳...'; btn.disabled = true; }
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a3' });
+    const pw = 420, ph = 297;
+    const cups = [
+      {key:'e2_catA_oro',   label:'Cat. A — Copa de Oro',   type:'oro'},
+      {key:'e2_catA_plata', label:'Cat. A — Copa de Plata', type:'plata'},
+      {key:'e2_catB_oro',   label:'Cat. B — Copa de Oro',   type:'oro'},
+      {key:'e2_catB_plata', label:'Cat. B — Copa de Plata', type:'plata'},
+    ];
+    for (let ci = 0; ci < cups.length; ci++) {
+      const cu = cups[ci];
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1190px;background:#fff;font-family:Helvetica,Arial,sans-serif';
+      wrap.innerHTML = buildBracketHTML(cu.key, cu.label, cu.type);
+      document.body.appendChild(wrap);
+      await new Promise(r => setTimeout(r, 250));
+      const canvas = await html2canvas(wrap, {
+        scale: 1.8, useCORS: true, backgroundColor: '#ffffff', logging: false,
+        width: 1190, height: wrap.scrollHeight
+      });
+      document.body.removeChild(wrap);
+      const imgData = canvas.toDataURL('image/png', 0.92);
+      if (ci > 0) pdf.addPage([pw, ph], 'landscape');
+      const imgW = pw;
+      const imgH = (canvas.height * pw) / canvas.width;
+      const scale = imgH > ph ? ph / imgH : 1;
+      const yOff = imgH < ph ? (ph - imgH*scale) / 2 : 0;
+      pdf.addImage(imgData, 'PNG', 0, yOff, imgW * scale, Math.min(imgH * scale, ph));
+    }
+    pdf.save('TheChampionship2026_Cuadros_Etapa2.pdf');
+    showToast('✓ PDF descargado');
+  } catch(err) {
+    showToast('Error: ' + err.message);
+  } finally {
+    if (btn) { btn.innerHTML = '⬇ PDF'; btn.disabled = false; }
+  }
+}
+
+async function downloadE2CuadrosPDF() {
+  showBracketPreview();
 }
 
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
-// Show splash: wait for image then show for 2s, then fade to menu
-window._splashReady = false;
-window._splashImgLoaded = false;
 function _hideSplash() {
   window._splashReady = true;
   const loader = document.getElementById('app-loading');
