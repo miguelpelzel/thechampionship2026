@@ -1182,16 +1182,20 @@ function navHome(tab) {
 
 function e2NavView(tab) {
   e2View = tab;
-  const sub = document.getElementById('header-sub');
+  var sub = document.getElementById('header-sub');
   if(sub) sub.textContent = '2026 · ETAPA 2 · PLAYOFFS';
-  const badge = document.getElementById('header-badge');
+  var badge = document.getElementById('header-badge');
   if(badge) { badge.textContent='EN CURSO'; badge.style.display=''; }
-  const _tl={grupos:'Etapa 2 - Grupos',partidos:'Etapa 2 - Partidos',posiciones:'Etapa 2 - Posiciones'};
-  gtag('event','page_view',{page_title:_tl[tab]||'Etapa 2'});
-  document.querySelectorAll('#nav-e2 .bn-item').forEach(el => el.classList.remove('active'));
-  const btn = document.getElementById('e2bn-' + tab);
+  var _tl={grupos:'Etapa 2 - Grupos',partidos:'Etapa 2 - Partidos',posiciones:'Etapa 2 - Posiciones'};
+  try{ gtag('event','page_view',{page_title:_tl[tab]||'Etapa 2'}); }catch(e){}
+  document.querySelectorAll('#nav-e2 .bn-item').forEach(function(el){ el.classList.remove('active'); });
+  var btn = document.getElementById('e2bn-' + tab);
   if (btn) btn.classList.add('active');
-  renderEtapa2();
+  if (tab === 'cuadros') {
+    renderE2Cuadros();
+  } else {
+    renderEtapa2();
+  }
 }
 
 function openStage(id) {
