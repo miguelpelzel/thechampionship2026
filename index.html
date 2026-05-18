@@ -308,8 +308,10 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
         <img src="splash.jpg" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex-shrink:0" alt="The Championship"/>
         <div class="logo-text">
           <div class="logo-title">The Championship</div>
+          <div class="logo-sub" id="header-sub">2026 · ETAPA 2 · PLAYOFFS</div>
         </div>
       </div>
+      <div class="header-badge" id="header-badge">EN CURSO</div>
     </div>
   </header>
   <div id="cup-nav-wrap"><div class="cup-nav" id="cup-nav"></div></div>
@@ -404,7 +406,11 @@ function setBoxesHtml(parsed, playerIdx) {
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
-function navView(v){view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
+function navView(v){
+  const sub = document.getElementById('header-sub');
+  if(sub) sub.textContent = '2026 · ETAPA 1 · PLAYOFFS';
+  const badge = document.getElementById('header-badge');
+  if(badge) { badge.textContent='EN CURSO'; badge.style.display=''; }view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
 
 function setCup(cup) { currentCup = cup; currentRound = 'all'; editingId = null; renderCupNav(); renderMain(); }
 function setRound(r) { currentRound = r; editingId = null; renderMain(); }
@@ -1176,6 +1182,10 @@ function navHome(tab) {
 
 function e2NavView(tab) {
   e2View = tab;
+  const sub = document.getElementById('header-sub');
+  if(sub) sub.textContent = '2026 · ETAPA 2 · PLAYOFFS';
+  const badge = document.getElementById('header-badge');
+  if(badge) { badge.textContent='EN CURSO'; badge.style.display=''; }
   const _tl={grupos:'Etapa 2 - Grupos',partidos:'Etapa 2 - Partidos',posiciones:'Etapa 2 - Posiciones'};
   gtag('event','page_view',{page_title:_tl[tab]||'Etapa 2'});
   document.querySelectorAll('#nav-e2 .bn-item').forEach(el => el.classList.remove('active'));
@@ -1853,52 +1863,39 @@ function renderE2Cuadros() {
 function e2SetRound(r) { e2CurrentRound = r; renderE2Cuadros(); }
 
 function e2CupCardHtml(m) {
-  const isSTB = m.score&&m.score!=='WO'&&m.score.trim().split(/\s+/).length===3;
-  const isDone = m.done && m.score;
-  const isTbd = isTBD(m.p1)||isTBD(m.p2);
-  const statusBadge = isDone
-    ? (m.score==='WO'?'<span class="badge-wo">W.O.</span>'
-      :(isSTB?'<span class="badge-stb">STB</span>'
-      :'<span class="badge-ok">FINALIZADO</span>'))
-    : (isTbd?'<span class="badge-tbd">POR DEFINIR</span>'
-      :'<span class="badge-pend">PENDIENTE</span>');
-
-  const p1bold = isDone && m.winner===m.p1;
-  const p2bold = isDone && m.winner===m.p2;
-  const scoreHtml = isDone ? renderScoreBadges(m.score, m.winner, m.p1, m.p2) : '';
-
-  let footer = '';
+  const p = m.done ? parseScore(m.score) : null;
+  const w = p ? p.winner : null;
+  const p1tbd = isTBD(m.p1), p2tbd = isTBD(m.p2);
+  const bothTBD = p1tbd && p2tbd;
+  const isWo = isWO(m.score); const tb = isTB(m.score);
+  let stCls, stTxt;
+  if (bothTBD)    { stCls='st-tbd';  stTxt='Por definir'; }
+  else if (isWo)  { stCls='st-wo';   stTxt='W.O.'; }
+  else if (m.done){ stCls='st-done'; stTxt='Finalizado'; }
+  else            { stCls='st-pend'; stTxt='Pendiente'; }
+  const p1cls = m.done?(w===1?'winner':'loser'):(p1tbd?'tbd':'');
+  const p2cls = m.done?(w===2?'winner':'loser'):(p2tbd?'tbd':'');
+  const p1n = p1tbd?'Por definir':m.p1; const p2n = p2tbd?'Por definir':m.p2;
+  const p1click = !p1tbd ? `onclick="openPlayer('${m.p1.replace(/'/g,"\'")}') "` : '';
+  const p2click = !p2tbd ? `onclick="openPlayer('${m.p2.replace(/'/g,"\'")}') "` : '';
+  const p1woTag = isWo&&w===2 ? '<span class="wo-tag">W.O.</span>' : '';
+  const p2woTag = isWo&&w===1 ? '<span class="wo-tag">W.O.</span>' : '';
   const editingThis = editingE2CupId === m.id;
-  if (isAdmin && !m.done && !isTbd) {
-    if (!editingThis) {
-      footer = `<button class="btn-load" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">+ Cargar resultado</button>`;
-    } else {
-      footer = `<div class="score-form"><input class="input" id="e2cup-inp-${m.id}"
-        placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2"
-        onkeydown="if(event.key==='Enter')saveE2CupScore('${m.id}','${e2CurrentCup}')"/>
-        <button class="btn-ok" onclick="saveE2CupScore('${m.id}','${e2CurrentCup}')">OK</button>
-        <button class="btn-cancel" onclick="editingE2CupId=null;renderE2Cuadros()">✕</button></div>
-        <div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
-    }
-  } else if (isAdmin && isDone) {
-    footer = `<button class="btn-edit" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">✎ Editar</button>
-      <button class="btn-cancel" style="margin-left:6px" onclick="deleteE2CupScore('${m.id}','${e2CurrentCup}')">✕ Borrar</button>`;
-  }
-
-  return `<div class="result-card">
-    <div class="rc-header">${statusBadge}</div>
-    <div class="rc-player ${p1bold?'rc-winner':''}" onclick="openPlayer('${m.p1.replace(/'/g,"\'")}')">
-      <span>${m.p1}</span>${p1bold?`<span class="rc-score">${scoreHtml}</span>`:''}
-    </div>
-    <div class="rc-player ${p2bold?'rc-winner':''}" onclick="openPlayer('${m.p2.replace(/'/g,"\'")}')">
-      <span>${m.p2}</span>${p2bold?`<span class="rc-score">${scoreHtml}</span>`:''}
-    </div>
-    ${footer?`<div class="rc-footer">${footer}</div>`:''}
+  let footer = '';
+  if (isAdmin && !bothTBD && !m.done && !editingThis)
+    footer = `<button class="btn-load" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">+ Cargar resultado</button>`;
+  else if (isAdmin && m.done)
+    footer = `<button class="btn-edit" onclick="startE2CupEdit('${m.id}','${e2CurrentCup}')">✎ Editar</button><button class="btn-cancel" style="margin-left:6px" onclick="deleteE2CupScore('${m.id}','${e2CurrentCup}')">✕ Borrar</button>`;
+  else if (!m.done && editingThis)
+    footer = `<div class="score-form"><input class="input" id="e2cup-inp-${m.id}" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key==='Enter')saveE2CupScore('${m.id}','${e2CurrentCup}')"/><button class="btn-ok" onclick="saveE2CupScore('${m.id}','${e2CurrentCup}')">OK</button><button class="btn-cancel" onclick="editingE2CupId=null;renderE2Cuadros()">✕</button></div><div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
+  const roundLabel = m.round === 'Final' ? 'Final' : `${m.round} de Final`;
+  return `<div class="match-card">
+    <div class="match-card-header"><div class="mh-round">${roundLabel}</div><div class="mh-right">${tb?'<span class="stb-note">STB</span>':''}<span class="mh-status ${stCls}">${stTxt}</span></div></div>
+    <div class="player-row ${p1cls}"><div class="pr-name" ${p1click}>${p1n}</div><div class="pr-sets">${setBoxesHtml(p,1)}${p1woTag}</div><div class="pr-check">${w===1?'✓':''}</div></div>
+    <div class="player-row ${p2cls}"><div class="pr-name" ${p2click}>${p2n}</div><div class="pr-sets">${setBoxesHtml(p,2)}${p2woTag}</div><div class="pr-check">${w===2?'✓':''}</div></div>
+    ${footer?`<div class="match-footer">${footer}</div>`:''}
   </div>`;
 }
-
-let editingE2CupId = null;
-
 function startE2CupEdit(id, cupKey) {
   editingE2CupId = id;
   renderE2Cuadros();
