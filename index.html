@@ -1983,44 +1983,63 @@ function propagateE2Cup(cup, finishedMatch) {
 }
 
 function showBracketPreview() {
-  // Build preview screen
-  const cups = [
-    {key:'e2_catA_oro',   label:'Cat. A — Oro',   type:'oro'},
-    {key:'e2_catA_plata', label:'Cat. A — Plata', type:'plata'},
-    {key:'e2_catB_oro',   label:'Cat. B — Oro',   type:'oro'},
-    {key:'e2_catB_plata', label:'Cat. B — Plata', type:'plata'},
+  var prev = document.getElementById('bracketPreview');
+  if (prev) prev.remove();
+
+  var cups = [
+    {key:'e2_catA_oro',   label:'Cat. A — Oro'},
+    {key:'e2_catA_plata', label:'Cat. A — Plata'},
+    {key:'e2_catB_oro',   label:'Cat. B — Oro'},
+    {key:'e2_catB_plata', label:'Cat. B — Plata'},
   ];
-  let currentPreviewCup = e2CurrentCup;
 
-  function renderPreview() {
-    const cu = cups.find(c=>c.key===currentPreviewCup) || cups[0];
-    const bracketHTML = buildBracketHTML(cu.key, cu.label, cu.type);
-    const navBtns = cups.map(c=>`<button class="bp-cup-btn${c.key===currentPreviewCup?' active':''}"
-      onclick="document.getElementById('bp-cup-key').value='${c.key}';document.getElementById('bp-render-btn').click()">${c.label}</button>`).join('');
+  var cup = E2_CUPS[e2CurrentCup];
+  var bracketHTML = buildBracketHTML(e2CurrentCup, cup.label, cup.type);
 
-    document.body.insertAdjacentHTML('beforeend', `
-      <div class="bracket-preview" id="bracketPreview">
-        <div class="bp-header">
-          <button class="bp-btn" onclick="document.getElementById('bracketPreview').remove()">← Volver</button>
-          <div class="bp-title">Cuadros — Etapa 2</div>
-          <button class="bp-btn bp-btn-dl" onclick="downloadPDFFromPreview()">⬇ PDF</button>
-        </div>
-        <div class="bp-cup-nav">${navBtns}</div>
-        <input type="hidden" id="bp-cup-key" value="${currentPreviewCup}">
-        <button id="bp-render-btn" style="display:none" onclick="
-          currentPreviewCup=document.getElementById('bp-cup-key').value;
-          document.getElementById('bracketPreview').remove();
-          showBracketPreview();
-        "></button>
-        <div class="bp-scroll" id="bp-scroll-area">
-          <div id="bp-bracket-content" style="min-width:900px">
-            ${bracketHTML}
-          </div>
-        </div>
-      </div>`);
-  }
-  renderPreview();
+  var div = document.createElement('div');
+  div.id = 'bracketPreview';
+  div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;z-index:9999;display:flex;flex-direction:column;overflow:hidden';
+
+  // Header
+  var hdr = document.createElement('div');
+  hdr.style.cssText = 'background:#0D2B5E;color:white;padding:10px 1rem;display:flex;align-items:center;gap:8px;flex-shrink:0';
+  var btnBack = document.createElement('button');
+  btnBack.textContent = '← Volver';
+  btnBack.style.cssText = 'background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:6px 12px;font-size:.75rem;font-weight:600;cursor:pointer';
+  btnBack.onclick = function(){ document.getElementById('bracketPreview').remove(); };
+  var title = document.createElement('div');
+  title.style.cssText = 'flex:1;font-size:.85rem;font-weight:700';
+  title.textContent = 'Cuadros — Etapa 2';
+  var btnDl = document.createElement('button');
+  btnDl.id = 'bp-dl-btn';
+  btnDl.textContent = '⬇ Descargar PDF';
+  btnDl.style.cssText = 'background:#B8860B;color:white;border:none;border-radius:6px;padding:6px 14px;font-size:.75rem;font-weight:700;cursor:pointer';
+  btnDl.onclick = function(){ downloadPDFFromPreview(); };
+  hdr.appendChild(btnBack); hdr.appendChild(title); hdr.appendChild(btnDl);
+
+  // Cup nav
+  var nav = document.createElement('div');
+  nav.style.cssText = 'display:flex;gap:6px;padding:8px;overflow-x:auto;flex-shrink:0;background:#f8f9fa;border-bottom:1px solid #e0e0e0';
+  cups.forEach(function(cu) {
+    var b = document.createElement('button');
+    b.textContent = cu.label;
+    b.style.cssText = 'border:1px solid #C0D4E8;border-radius:6px;padding:5px 12px;font-size:.72rem;cursor:pointer;white-space:nowrap;font-weight:500;' + (cu.key===e2CurrentCup ? 'background:#1A56A0;color:white;border-color:#1A56A0' : 'background:#fff;color:#1A56A0');
+    b.onclick = function(){ e2CurrentCup = cu.key; showBracketPreview(); };
+    nav.appendChild(b);
+  });
+
+  // Scroll area
+  var scroll = document.createElement('div');
+  scroll.style.cssText = 'flex:1;overflow:auto;padding:8px';
+  var inner = document.createElement('div');
+  inner.style.cssText = 'min-width:900px';
+  inner.innerHTML = bracketHTML;
+  scroll.appendChild(inner);
+
+  div.appendChild(hdr); div.appendChild(nav); div.appendChild(scroll);
+  document.body.appendChild(div);
 }
+
 
 async function downloadPDFFromPreview() {
   const btn = document.querySelector('.bp-btn-dl');
