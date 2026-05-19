@@ -246,8 +246,7 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 .forEach(m=>propagateWinner(matches,m));
             });
           }
-          // Only re-render if on a relevant view AND user hasn't navigated manually
-          if(!window._userNavigated && (view==='home'||view==='draws')) renderMain();
+          // Data updated in memory - view will re-render when user navigates
         }
       });
     };
@@ -321,14 +320,7 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
         });
         // Re-render only what's needed, never force navigation
         window._e2Loaded=true;
-        if(changed && !window._userNavigated){
-          if(view==='etapa2'){
-            if(e2View==='cuadros'){try{renderE2Cuadros();}catch(e){}}
-            else{try{renderEtapa2();}catch(e){}}
-          } else if(view==='home'){
-            renderMain();
-          }
-        }
+        // Data updated in memory only - no automatic navigation
       });
     };
     window.addEventListener('load',()=>{
@@ -1035,6 +1027,33 @@ function renderPlayerDetail(name){
       });
     });
   }
+  // E2 cup matches
+  const _cups2 = window.E2_CUPS || E2_CUPS;
+  const _cupLabels = {
+    'e2_catA_oro':'Copa Oro Cat. A','e2_catA_plata':'Copa Plata Cat. A',
+    'e2_catB_oro':'Copa Oro Cat. B','e2_catB_plata':'Copa Plata Cat. B'
+  };
+  const _roundLabels = {
+    '32avos':'32avos de Final','16vos':'16vos de Final',
+    '8vos':'Octavos de Final','4tos':'Cuartos de Final',
+    'Semis':'Semifinales','Final':'Final'
+  };
+  if (_cups2) {
+    Object.entries(_cups2).forEach(([key, cup]) => {
+      cup.matches.forEach(m => {
+        if (!m.done || !m.score || m.score === 'BYE') return;
+        if (m.p1 !== name && m.p2 !== name) return;
+        if (m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
+        allMatches.push({
+          year: 2026, etapa: 2,
+          fase: _cupLabels[key] || 'Copa E2',
+          instancia: _roundLabels[m.round] || m.round,
+          p1: m.p1, p2: m.p2,
+          score: m.score, winner: m.winner
+        });
+      });
+    });
+  }
   // Future etapas (3, 4) can be added here similarly
   allMatches.sort((a,b)=>b.year-a.year||b.etapa-a.etapa);
   const _isWO=m=>m.score==='WO'||m.score==='WO 1'||m.score==='WO 2';
@@ -1282,20 +1301,16 @@ function e2NavView(tab) {
 
 function openStage(id) {
   window._userNavigated = true;
+  function el(id){ return document.getElementById(id); }
+  function show(id,v){ var e=el(id); if(e) e.style.display=v; }
   if (id === 1) {
-    document.getElementById('nav-home').style.display = 'none';
-    document.getElementById('nav-e1').style.display = '';
-    document.getElementById('nav-e2').style.display = 'none';
-    document.getElementById('cup-nav-wrap').style.display = '';
+    show('nav-home','none'); show('nav-e1',''); show('nav-e2','none'); show('cup-nav-wrap','');
     view = 'draws';
-    document.querySelectorAll('#nav-e1 .bn-item').forEach(el => el.classList.remove('active'));
-    document.getElementById('bn-draws').classList.add('active');
+    document.querySelectorAll('#nav-e1 .bn-item').forEach(function(e){ e.classList.remove('active'); });
+    var bd = el('bn-draws'); if(bd) bd.classList.add('active');
     renderCupNav(); renderMain();
   } else if (id === 2) {
-    document.getElementById('nav-home').style.display = 'none';
-    document.getElementById('nav-e1').style.display = 'none';
-    document.getElementById('nav-e2').style.display = '';
-    document.getElementById('cup-nav-wrap').style.display = 'none';
+    show('nav-home','none'); show('nav-e1','none'); show('nav-e2',''); show('cup-nav-wrap','none');
     e2View = 'cuadros'; e2Cat = 'A'; e2GrpFilter = 'all';
     initE2State();
     e2NavView('cuadros');
@@ -1311,8 +1326,7 @@ function goHome() {
   document.querySelectorAll('#nav-home .bn-item').forEach(el => el.classList.remove('active'));
   document.getElementById('bn-home-main').classList.add('active');
   view = 'home'; renderMain();
-  // Re-render only if still on home after Firebase settles
-  setTimeout(function(){ window._userNavigated = false; if(view==='home') renderMain(); }, 1500);
+  // No deferred re-render
 }
 
 function renderEtapa2() {
@@ -1945,6 +1959,8 @@ let e2CurrentCup = 'e2_catA_oro';
 let e2CurrentRound = 'all';
 
 function renderE2Cuadros() {
+  var _main = document.getElementById('main');
+  if (!_main) return;
   try {
   var cups = [
     {key:'e2_catA_oro',   label:'Cat. A - Oro'},
@@ -2339,8 +2355,7 @@ function _hideSplash() {
     loader.style.opacity = '0';
     setTimeout(() => { loader.style.display = 'none'; }, 500);
   }
-  // Re-render home after Firebase has had time to load E2 data
-  setTimeout(() => { if(view==='home') renderMain(); else if(view==='etapa2'&&e2View==='cuadros'){try{renderE2Cuadros();}catch(e){}} }, 2000);
+  // No auto re-render to avoid navigation interference
 }
 function _waitAndHide() {
   if (window._splashImgLoaded) {
