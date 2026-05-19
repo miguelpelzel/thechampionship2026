@@ -311,16 +311,21 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 }
               }
             }
+            // Re-render cuadros if currently viewing them
+            if(changed && e2View==='cuadros') {
+              try { renderE2Cuadros(); } catch(e) {}
+            }
             return;
           }
         });
         // Always re-render home on first snapshot to show correct progress
         if(changed||!window._e2Loaded){
           window._e2Loaded=true;
-          if(view==='etapa2') renderEtapa2();
-          else if(view==='home') renderMain();
+          if(view==='etapa2') {
+            if(e2View==='cuadros') { try{ renderE2Cuadros(); }catch(e){} }
+            else renderEtapa2();
+          } else if(view==='home') renderMain();
           else {
-            // Even if not on home yet, update when user navigates there
             window._e2NeedsHomeRefresh=true;
           }
         }
@@ -1265,9 +1270,9 @@ function openStage(id) {
     document.getElementById('nav-e1').style.display = 'none';
     document.getElementById('nav-e2').style.display = '';
     document.getElementById('cup-nav-wrap').style.display = 'none';
-    e2View = 'grupos'; e2Cat = 'A'; e2GrpFilter = 'all';
+    e2View = 'cuadros'; e2Cat = 'A'; e2GrpFilter = 'all';
     initE2State();
-    e2NavView('grupos');
+    e2NavView('cuadros');
   }
 }
 
@@ -1279,8 +1284,8 @@ function goHome() {
   document.querySelectorAll('#nav-home .bn-item').forEach(el => el.classList.remove('active'));
   document.getElementById('bn-home-main').classList.add('active');
   view = 'home'; renderMain();
-  // Re-render after Firebase settles to show correct E2 progress
-  setTimeout(renderMain, 1500);
+  // Re-render only if still on home after Firebase settles
+  setTimeout(function(){ if(view==='home') renderMain(); }, 1500);
 }
 
 function renderEtapa2() {
@@ -1689,6 +1694,74 @@ function renderRanking() {
     return pts;
   }
 
+  // ── E2 CUP POINTS ────────────────────────────────────────────────────────────
+  function calcE2Pts(name, category) {
+    const E2_CUPS_MAP = category==='A'
+      ? [{key:'e2_catA_oro',type:'oro'},{key:'e2_catA_plata',type:'plata'}]
+      : [{key:'e2_catB_oro',type:'oro'},{key:'e2_catB_plata',type:'plata'}];
+    const cups = window.E2_CUPS || E2_CUPS;
+    const ORDER = ['32avos','16vos','8vos','4tos','Semis','Final'];
+    const PTS_ORO   = {Campeón:1500,Finalista:850,Semis:450,'4tos':250,'8vos':120,'16vos':60,'32avos':30};
+    const PTS_PLATA = {Campeón:400, Finalista:250,Semis:130,'4tos':75, '8vos':35, '16vos':20,'32avos':30};
+    let pts = 0;
+    E2_CUPS_MAP.forEach(function(ci) {
+      var cup = cups[ci.key]; if(!cup) return;
+      var ptTable = ci.type==='oro' ? PTS_ORO : PTS_PLATA;
+      var realMs = cup.matches.filter(function(m){ return !isBYE(m.score); });
+      var played  = realMs.filter(function(m){ return (m.p1===name||m.p2===name)&&m.done; });
+      if(!played.length) return;
+      // Find best round reached and whether won or lost
+      var bestIdx = -1; var lost = false; var lostRound = null;
+      played.forEach(function(m) {
+        var ri = ORDER.indexOf(m.round);
+        if(ri > bestIdx) { bestIdx=ri; lost=(m.winner!==name); lostRound=m.round; }
+      });
+      if(bestIdx < 0) return;
+      var label;
+      if(lost) {
+        label = lostRound === 'Final' ? 'Finalista' : lostRound;
+      } else {
+        // Won everything — champion
+        var wonFinal = played.some(function(m){ return m.round==='Final'&&m.winner===name; });
+        if(wonFinal) { label='Campeón'; }
+        else {
+          // Still in tournament — next round = guaranteed minimum
+          var nextIdx = bestIdx+1;
+          label = nextIdx < ORDER.length ? ORDER[nextIdx] : 'Campeón';
+          if(label==='Final') label='Finalista';
+        }
+      }
+      pts += ptTable[label] || 0;
+    });
+    return pts;
+  }
+
+  function getE2BestRound(name, category) {
+    const E2_CUPS_MAP = category==='A'
+      ? [{key:'e2_catA_oro',type:'Oro'},{key:'e2_catA_plata',type:'Plata'}]
+      : [{key:'e2_catB_oro',type:'Oro'},{key:'e2_catB_plata',type:'Plata'}];
+    const cups = window.E2_CUPS || E2_CUPS;
+    const ORDER = ['32avos','16vos','8vos','4tos','Semis','Final'];
+    const SHORT2 = {'32avos':'32avos','16vos':'16vos','8vos':'8vos','4tos':'4tos','Semis':'Semis','Final':'Final'};
+    var result = [];
+    E2_CUPS_MAP.forEach(function(ci) {
+      var cup = cups[ci.key]; if(!cup) return;
+      var played = cup.matches.filter(function(m){ return !isBYE(m.score)&&m.done&&(m.p1===name||m.p2===name); });
+      if(!played.length) return;
+      var bestIdx=-1; var lostRound=null; var won=false;
+      played.forEach(function(m){
+        var ri=ORDER.indexOf(m.round);
+        if(ri>bestIdx){bestIdx=ri;lostRound=m.winner!==name?m.round:null;won=(m.winner===name);}
+      });
+      if(bestIdx<0) return;
+      var label;
+      if(lostRound) { label=lostRound==='Final'?'Final':lostRound; }
+      else { label=won&&bestIdx===ORDER.length-1?'Camp.':ORDER[bestIdx+1]||'Camp.'; }
+      result.push({label:SHORT2[label]||label, cupType:ci.type});
+    });
+    return result;
+  }
+
   // Short label mapping
   const SHORT = {'Campeón':'Camp.','Finalista':'Final','Semis':'Semi','4tos':'4tos','8vos':'8vos','16vos':'16vos','32vos':'32vos'};
 
@@ -1696,12 +1769,28 @@ function renderRanking() {
 
   function buildTable(players, category) {
     const cupKeys = category==='A' ? ['catA_oro','catA_plata'] : ['catB_oro','catB_plata'];
-    const rows = [...players]
+    // Include all players: E1 players + E2-only players
+    const cups2 = window.E2_CUPS || E2_CUPS;
+    const e2CupKeys = category==='A'
+      ? ['e2_catA_oro','e2_catA_plata'] : ['e2_catB_oro','e2_catB_plata'];
+    const e2Players = new Set();
+    e2CupKeys.forEach(k => {
+      const cup = cups2[k]; if(!cup) return;
+      cup.matches.forEach(m => {
+        if(m.p1&&m.p1!=='Por definir') e2Players.add(m.p1);
+        if(m.p2&&m.p2!=='Por definir') e2Players.add(m.p2);
+      });
+    });
+    const allPlayers = [...new Set([...players, ...e2Players])];
+
+    const rows = allPlayers
       .map(name => {
         const e1pts = calcPtsByCategory(name, category);
         const e1round = getBestRound(name, cupKeys);
-        const e2=0, e3=0, e4=0;
-        return {name, e1pts, e1round, e2, e3, e4, total: e1pts+e2+e3+e4};
+        const e2pts = calcE2Pts(name, category);
+        const e2round = getE2BestRound(name, category);
+        const e3=0, e4=0;
+        return {name, e1pts, e1round, e2pts, e2round, e3, e4, total: e1pts+e2pts+e3+e4};
       })
       .filter(p => p.total > 0)
       .sort((a,b) => b.total - a.total);
@@ -1734,7 +1823,7 @@ function renderRanking() {
         <div style="font-size:.85rem;font-weight:700;color:var(--blue);text-align:center">${total}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e1pts)}</div>
         <div style="text-align:center">${phaseHtml}</div>
-        <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
+        <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e2pts)}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
       </div>`;
@@ -1766,7 +1855,7 @@ function renderRanking() {
       <div style="padding:.8rem 0;font-size:.65rem;color:var(--muted);line-height:1.8">
         <b>Puntos por ronda:</b><br>
         Campeón: 1500 (Oro) / 400 (Plata) · Finalista: 850 / 250<br>
-        Semis: 450 / 130 · 4tos: 250 / 75 · 8vos: 120 / 35 · 16vos: 60 / 20
+        Semis: 450 / 130 · 4tos: 250 / 75 · 8vos: 120 / 35 · 16vos: 60 / 20 · 32avos: 30
       </div>
     </div>`;
 }
@@ -1821,6 +1910,7 @@ function exportE2Results() {
 }
 
 const E2_CUPS={"e2_catA_oro":{"label":"Cat. A - Copa de Oro","type":"oro","matches":[{"p1":"Ricardo Szyfer","p2":"Román Navarro","score":"","done":false,"winner":null,"round":"32avos","id":"32avos_1"},{"p1":"Francisco Rubio","p2":"Horacio Roig","score":"","done":false,"winner":null,"round":"32avos","id":"32avos_2"},{"p1":"Joaquín Arretche","p2":"Gustavo Bornhoffer","score":"","done":false,"winner":null,"round":"32avos","id":"32avos_3"},{"p1":"Santiago Bazzurro","p2":"Agustín Matos","score":"","done":false,"winner":null,"round":"32avos","id":"32avos_4"},{"p1":"Juan Martín Bauzá","p2":"","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_1"},{"p1":"Andrés Duffour","p2":"Sebastián Pena","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_2"},{"p1":"Gadiel Temkin","p2":"Alexandre Araujo","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_3"},{"p1":"Marcelo Serra","p2":"Mateo Sallés","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_4"},{"p1":"Maximiliano Cambón","p2":"Martín Fraga","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_5"},{"p1":"Gonzalo Parada","p2":"Alvaro Kaminietzky","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_6"},{"p1":"Francisco Natteri","p2":"Luis Bordaberry","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_7"},{"p1":"Diego Albanell","p2":"","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_8"},{"p1":"","p2":"Guillermo Hughes","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_9"},{"p1":"Rafael Gomensoro","p2":"Juan Miguel Álvarez","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_10"},{"p1":"Alejo Matos","p2":"Nicolás Delavechia","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_11"},{"p1":"Luis Ignacio Gomensoro","p2":"Felipe Goyenola","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_12"},{"p1":"Alejandro Lammertyn","p2":"Martín Slinger","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_13"},{"p1":"Alfredo Guelfi","p2":"Juan Bartesaghi","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_14"},{"p1":"Timoteo Acosta","p2":"Agustín Novegil","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_15"},{"p1":"","p2":"Uriel Rosenfeld","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_16"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_3"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_4"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_5"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_6"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_7"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_8"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_3"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_4"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Final","id":"Final_1"}]},"e2_catA_plata":{"label":"Cat. A - Copa de Plata","type":"plata","matches":[{"p1":"Alejandro Young","p2":"Ignacio Medoc","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_1"},{"p1":"Gustavo Voituret","p2":"Jerónimo Acosta","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_2"},{"p1":"Andrés Della Cella","p2":"Manuel Mendive","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_3"},{"p1":"Javier Vigo","p2":"Nicolás Rubio","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_4"},{"p1":"Gustavo Sánchez","p2":"Enrique Hanania","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_5"},{"p1":"Walter Zeinal","p2":"Miguel Pelzel","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_6"},{"p1":"Francisco Cazabán","p2":"Nelson Russo","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_7"},{"p1":"Bernardo Mangarelli","p2":"Martín Garrone","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_8"},{"p1":"Wilfredo Bunge","p2":"Marcelo Lasowski","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_9"},{"p1":"Alejandro Deal","p2":"Olivier Chetanneau","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_10"},{"p1":"Agustín Stremmler","p2":"Juan Pérez del Castillo","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_11"},{"p1":"Fabián Riet","p2":"Ruben Piperno","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_12"},{"p1":"Alejandro Coll","p2":"Mario Esposto","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_13"},{"p1":"Matías Yelin","p2":"Santiago Tolomei","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_14"},{"p1":"Diego Carranza","p2":"Santiago Carbajal","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_15"},{"p1":"Martín Matos","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_3"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_4"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_5"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_6"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_7"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_8"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_3"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_4"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Final","id":"Final_1"}]},"e2_catB_oro":{"label":"Cat. B - Copa de Oro","type":"oro","matches":[{"p1":"Jose Luis Rodriguez","p2":"Rodolfo Benegas","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_1"},{"p1":"Conrado Payseé","p2":"Diego Scasso","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_2"},{"p1":"Richard Felce","p2":"Luis Rodriguez","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_3"},{"p1":"Martin Sorrosal","p2":"Agustin Castelli","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_4"},{"p1":"Andrés Durán","p2":"Fernando Foti","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_5"},{"p1":"Guillermo Altmann","p2":"Luis Zeballos","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_6"},{"p1":"Adrián Margoniner","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_1"},{"p1":"","p2":"Fernando Muxi","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_2"},{"p1":"Gastón Silveira","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_3"},{"p1":"","p2":"Javier Mosca","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_4"},{"p1":"Daniel Igorra","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_5"},{"p1":"","p2":"Diego Pertman","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_6"},{"p1":"Fernando Vargas","p2":"Ignacio Diez","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_7"},{"p1":"Manuel Reboiras","p2":"Mauricio Fernández","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_8"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_3"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_4"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Final","id":"Final_1"}]},"e2_catB_plata":{"label":"Cat. B - Copa de Plata","type":"plata","matches":[{"p1":"Facundo De Souza","p2":"Felipe Regules","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_1"},{"p1":"Luis Francolino","p2":"José Ignacio Bemaor","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_2"},{"p1":"Marcos Ingold","p2":"Ignacio Platero","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_3"},{"p1":"Fernando de la Fuente","p2":"Ignacio Massat","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_4"},{"p1":"Martín Di Marco","p2":"Marcelo Jorcin","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_5"},{"p1":"Francisco Curone","p2":"Ignacio Rivela","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_6"},{"p1":"Juan Diego Boix","p2":"Philip Umpierre","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_7"},{"p1":"Felipe Balerio","p2":"Santiago Soler","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_8"},{"p1":"Alejandro Stegmann","p2":"Rodrigo Guerra","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_9"},{"p1":"Nicolás Sáez","p2":"Lucas Baldomir","score":"","done":false,"winner":null,"round":"16vos","id":"16vos_10"},{"p1":"Fernando Burgueño","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_1"},{"p1":"","p2":"Guzmán Zorrilla","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_2"},{"p1":"","p2":"Marcelo Díaz","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_3"},{"p1":"Matias Burgos","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_4"},{"p1":"Daniel Nahmias","p2":"","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_5"},{"p1":"","p2":"Pablo Milburn","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_6"},{"p1":"Juan Diego Boix","p2":"Felipe Balerio","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_7"},{"p1":"Alejandro Stegmann","p2":"Rodrigo Guerra","score":"","done":false,"winner":null,"round":"8vos","id":"8vos_8"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_3"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"4tos","id":"4tos_4"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_1"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Semis","id":"Semis_2"},{"p1":"","p2":"","score":"","done":false,"winner":null,"round":"Final","id":"Final_1"}]}};
+window.E2_CUPS = E2_CUPS;
 
 // ── E2 CUADROS ────────────────────────────────────────────────────────────────
 var editingE2CupId = null;
