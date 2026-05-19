@@ -1804,7 +1804,7 @@ function renderRanking() {
   }
 
   // Short label mapping
-  const SHORT = {'Campeón':'Camp.','Finalista':'Final','Semis':'Semi','4tos':'4tos','8vos':'8vos','16vos':'16vos','32vos':'32vos'};
+  const SHORT = {'Campeón':'Camp.','Finalista':'Final','Semis':'Semi','4tos':'4tos','8vos':'8vos','16vos':'16vos','32vos':'32vos','32avos':'32avos'};
 
   if(!window.rankingCat) window.rankingCat = 'A';
 
@@ -1840,13 +1840,14 @@ function renderRanking() {
 
     // Scrollable table
     const header = `
-      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 52px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:520px">
+      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:520px">
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">#</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted)">JUGADOR</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--blue);text-align:center">TOTAL</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E1 Pts</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E1 Fase</div>
-        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E2</div>
+        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E2 Pts</div>
+        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E2 Fase</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E3</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E4</div>
       </div>`;
@@ -1858,13 +1859,17 @@ function renderRanking() {
       const phaseHtml = (e1round||[]).map(r =>
         `<div style="font-size:.6rem;white-space:nowrap">${SHORT[r.label]||r.label} <span style="color:${r.cupType==='Oro'?'#b8860b':'#607d8b'};font-weight:600">${r.cupType}</span></div>`
       ).join('') || '<div style="font-size:.68rem;color:var(--muted)">-</div>';
-      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 52px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:520px">
+      const e2PhaseHtml = (e2round||[]).map(r =>
+        `<div style="font-size:.6rem;white-space:nowrap">${SHORT[r.label]||r.label} <span style="color:${r.cupType==='Oro'?'#b8860b':'#607d8b'};font-weight:600">${r.cupType}</span></div>`
+      ).join('') || '<div style="font-size:.68rem;color:var(--muted)">-</div>';
+      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:520px">
         <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-align:center">${i+1}</div>
         <div style="font-size:.82rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}</div>
         <div style="font-size:.85rem;font-weight:700;color:var(--blue);text-align:center">${total}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e1pts)}</div>
         <div style="text-align:center">${phaseHtml}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e2pts)}</div>
+        <div style="text-align:center">${e2PhaseHtml}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
       </div>`;
