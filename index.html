@@ -258,21 +258,60 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
         // Use ALL docs (not just changes) so first load gets everything
         snapshot.docs.forEach(doc=>{
           const d=doc.data();
+          // ── E2 group phase matches ───────────────────────────────────────
           const catMatch=d.cupKey&&d.cupKey.match(/^e2_([AB])(\d+)$/);
-          if(!catMatch)return;
-          const cat=catMatch[1],grp=parseInt(catMatch[2]);
-          const g=window.E2_STATE[cat]&&window.E2_STATE[cat].find(x=>x.group===grp);
-          if(!g)return;
-          const m=g.matches.find(x=>x.id===d.matchId);
-          if(!m)return;
-          if(d.score==='__deleted__'){
-            if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
-          } else if(d.score&&d.score.trim()){
-            if(!m.done||m.score!==d.score||m.winner!==d.winner){
-              m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
-              if(!window._fbE2Cache) window._fbE2Cache={};
-              window._fbE2Cache[d.cupKey+'__'+d.matchId]=d.updatedAt||Date.now();
+          if(catMatch){
+            const cat=catMatch[1],grp=parseInt(catMatch[2]);
+            const g=window.E2_STATE[cat]&&window.E2_STATE[cat].find(x=>x.group===grp);
+            if(g){
+              const m=g.matches.find(x=>x.id===d.matchId);
+              if(m){
+                if(d.score==='__deleted__'){
+                  if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
+                } else if(d.score&&d.score.trim()){
+                  if(!m.done||m.score!==d.score||m.winner!==d.winner){
+                    m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+                  }
+                }
+              }
             }
+            return;
+          }
+          // ── E2 cup (copa) matches ────────────────────────────────────────
+          const cupKeys=['e2_catA_oro','e2_catA_plata','e2_catB_oro','e2_catB_plata'];
+          if(d.cupKey&&cupKeys.includes(d.cupKey)&&window.E2_CUPS){
+            const cup=window.E2_CUPS[d.cupKey];
+            if(!cup) return;
+            const m=cup.matches.find(x=>x.id===d.matchId);
+            if(!m) return;
+            if(d.score==='__deleted__'){
+              if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
+            } else if(d.score&&d.score.trim()){
+              if(!m.done||m.score!==d.score||m.winner!==d.winner){
+                m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+                // Propagate winner to next round
+                if(window.E2_CUPS){
+                  const ORDER=['32avos','16vos','8vos','4tos','Semis','Final'];
+                  const rIdx=ORDER.indexOf(m.round);
+                  if(rIdx>=0&&rIdx<ORDER.length-1){
+                    const nextRound=ORDER[rIdx+1];
+                    const sameRound=cup.matches.filter(x=>x.round===m.round);
+                    const pos=sameRound.findIndex(x=>x.id===m.id);
+                    if(pos>=0){
+                      const nextMatches=cup.matches.filter(x=>x.round===nextRound);
+                      const nextIdx=Math.floor(pos/2);
+                      const slot=pos%2;
+                      const next=nextMatches[nextIdx];
+                      if(next&&!next.done){
+                        if(slot===0) next.p1=m.winner;
+                        else next.p2=m.winner;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            return;
           }
         });
         // Always re-render home on first snapshot to show correct progress
