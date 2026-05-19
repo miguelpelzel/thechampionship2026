@@ -246,7 +246,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 .forEach(m=>propagateWinner(matches,m));
             });
           }
-          renderMain();
+          // Only re-render if on a relevant view
+          if(view==='home'||view==='draws') renderMain();
         }
       });
     };
@@ -1811,7 +1812,7 @@ function renderRanking() {
       </div>`;
 
     const fmt = v => v > 0 ? v : '-';
-    const rowsHtml = rows.map(({name,e1pts,e1round,e2,e3,e4,total},i) => {
+    const rowsHtml = rows.map(({name,e1pts,e1round,e2pts,e2round,e3,e4,total},i) => {
       const bg = i%2===0?'#fafbfc':'white';
       // Build phase display: e.g. "Final Oro / 8vos Plata"
       const phaseHtml = (e1round||[]).map(r =>
@@ -2313,7 +2314,7 @@ function _hideSplash() {
     setTimeout(() => { loader.style.display = 'none'; }, 500);
   }
   // Re-render home after Firebase has had time to load E2 data
-  setTimeout(() => { if(view==='home') renderMain(); }, 2000);
+  setTimeout(() => { if(view==='home') renderMain(); else if(view==='etapa2'&&e2View==='cuadros'){try{renderE2Cuadros();}catch(e){}} }, 2000);
 }
 function _waitAndHide() {
   if (window._splashImgLoaded) {
