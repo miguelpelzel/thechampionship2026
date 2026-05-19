@@ -246,8 +246,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 .forEach(m=>propagateWinner(matches,m));
             });
           }
-          // Only re-render if on a relevant view
-          if(view==='home'||view==='draws') renderMain();
+          // Only re-render if on a relevant view AND user hasn't navigated manually
+          if(!window._userNavigated && (view==='home'||view==='draws')) renderMain();
         }
       });
     };
@@ -319,15 +319,14 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
             return;
           }
         });
-        // Always re-render home on first snapshot to show correct progress
-        if(changed||!window._e2Loaded){
-          window._e2Loaded=true;
-          if(view==='etapa2') {
-            if(e2View==='cuadros') { try{ renderE2Cuadros(); }catch(e){} }
-            else renderEtapa2();
-          } else if(view==='home') renderMain();
-          else {
-            window._e2NeedsHomeRefresh=true;
+        // Re-render only what's needed, never force navigation
+        window._e2Loaded=true;
+        if(changed && !window._userNavigated){
+          if(view==='etapa2'){
+            if(e2View==='cuadros'){try{renderE2Cuadros();}catch(e){}}
+            else{try{renderEtapa2();}catch(e){}}
+          } else if(view==='home'){
+            renderMain();
           }
         }
       });
@@ -415,6 +414,7 @@ for (const [key, cup] of Object.entries(CUPS_DATA)) {
   CUP_STATE[key] = { ...cup, matches: cup.matches.map(m => ({...m})) };
 }
 let view = 'home';
+window._userNavigated = false; // true once user clicks anything
 let currentCup    = 'catA_oro';
 let currentRound  = 'all';
 let editingId     = null;
@@ -465,6 +465,7 @@ function setBoxesHtml(parsed, playerIdx) {
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
 function navView(v){
+  window._userNavigated = true;
   const sub = document.getElementById('header-sub');
   if(sub) sub.textContent = '2026 · ETAPA 1 · PLAYOFFS';
   const badge = document.getElementById('header-badge');
@@ -779,6 +780,29 @@ function getAllMatches2026(){
       });
     });
   }
+  // ── Etapa 2 Copas ──────────────────────────────────────────────────────────
+  const cups2 = window.E2_CUPS || E2_CUPS;
+  const CKM2 = {
+    'e2_catA_oro':   'Copa Oro · Cat. A · E2',
+    'e2_catA_plata': 'Copa Plata · Cat. A · E2',
+    'e2_catB_oro':   'Copa Oro · Cat. B · E2',
+    'e2_catB_plata': 'Copa Plata · Cat. B · E2',
+  };
+  const RL2 = {'32avos':'32avos de Final','16vos':'16vos de Final','8vos':'Octavos de Final','4tos':'Cuartos de Final','Semis':'Semifinales','Final':'Final'};
+  Object.entries(cups2).forEach(([key, cup]) => {
+    cup.matches.forEach(m => {
+      if (!m.done || isBYE(m.score) || !m.p1 || !m.p2) return;
+      if (m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
+      const k = [m.p1, m.p2, m.round, key].join('|');
+      if (seen.has(k)) return; seen.add(k);
+      out.push({
+        year: 2026, etapa: 2,
+        fase: CKM2[key] || 'Copa E2',
+        instancia: RL2[m.round] || m.round,
+        p1: m.p1, p2: m.p2, score: m.score, winner: m.winner
+      });
+    });
+  });
   return out;
 }
 function renderHistory(){
@@ -1257,6 +1281,7 @@ function e2NavView(tab) {
 }
 
 function openStage(id) {
+  window._userNavigated = true;
   if (id === 1) {
     document.getElementById('nav-home').style.display = 'none';
     document.getElementById('nav-e1').style.display = '';
@@ -1278,6 +1303,7 @@ function openStage(id) {
 }
 
 function goHome() {
+  window._userNavigated = true;
   document.getElementById('nav-home').style.display = '';
   document.getElementById('nav-e1').style.display = 'none';
   document.getElementById('nav-e2').style.display = 'none';
@@ -1286,7 +1312,7 @@ function goHome() {
   document.getElementById('bn-home-main').classList.add('active');
   view = 'home'; renderMain();
   // Re-render only if still on home after Firebase settles
-  setTimeout(function(){ if(view==='home') renderMain(); }, 1500);
+  setTimeout(function(){ window._userNavigated = false; if(view==='home') renderMain(); }, 1500);
 }
 
 function renderEtapa2() {
@@ -2330,12 +2356,14 @@ setTimeout(_hideSplash, 4000); // failsafe
 for (const key of Object.keys(CUP_STATE)) {
   propagateAllTBD(CUP_STATE[key].matches);
 }
+if(view==='home'){
 document.getElementById('nav-home').style.display = '';
 document.getElementById('nav-e1').style.display = 'none';
 document.getElementById('nav-e2').style.display = 'none';
 document.getElementById('cup-nav-wrap').style.display = 'none';
 document.getElementById('bn-home-main').classList.add('active');
 renderMain();
+};
 </script>
 </body>
 </html>
