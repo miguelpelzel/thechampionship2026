@@ -459,9 +459,9 @@ function setBoxesHtml(parsed, playerIdx) {
 function navView(v){
   window._userNavigated = true;
   const sub = document.getElementById('header-sub');
-  if(sub) sub.textContent = '2026 · ETAPA 1 · PLAYOFFS';
+  if(sub) { sub.textContent = ''; sub.style.display='none'; }
   const badge = document.getElementById('header-badge');
-  if(badge) { badge.textContent='FINALIZADA'; badge.style.cssText='background:#2e7d32'; badge.style.display=''; }view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
+  if(badge) { badge.style.display='none'; }if(sub) sub.style.display='none'; view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
 
 function setCup(cup) { currentCup = cup; currentRound = 'all'; editingId = null; renderCupNav(); renderMain(); }
 function setRound(r) { currentRound = r; editingId = null; renderMain(); }
@@ -692,7 +692,7 @@ function renderHome(){
   const cards=stages.map((s,i)=>{
     const barCls=s.status==='current'?'current':s.status==='done'?'done':'upcoming';
     const pillCls=s.status==='current'?'pill-current':s.status==='done'?'pill-done':'pill-soon';
-    const pillTxt=s.status==='current'?'● En curso':s.status==='done'?'✓ Finalizada':'Próximamente';
+    const pillTxt=s.status==='current'?'● En curso':s.status==='done'?'FINALIZADA':'Próximamente';
     const aCls=s.status==='current'||s.status==='done'?'s-active':'s-locked';
     const onclick=s.clickable?`onclick="openStage(${s.id})"`:'' ;
     const pctTag=s.id===1?`<div class="stage-meta-item">📊 ${pct}% playoffs</div>`:'';
