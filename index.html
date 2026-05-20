@@ -461,7 +461,7 @@ function navView(v){
   const sub = document.getElementById('header-sub');
   if(sub) sub.textContent = '2026 · ETAPA 1 · PLAYOFFS';
   const badge = document.getElementById('header-badge');
-  if(badge) { badge.textContent='EN CURSO'; badge.style.display=''; }view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
+  if(badge) { badge.textContent='FINALIZADA'; badge.style.cssText='background:#2e7d32'; badge.style.display=''; }view=v;editingId=null;selectedPlayer=null;playerSearch='';const _vl={draws:'Etapa 1 - Cuadros',groups:'Etapa 1 - Grupos'};gtag('event','page_view',{page_title:_vl[v]||v});document.getElementById('nav-e2').style.display='none';document.querySelectorAll('#nav-e1 .bn-item').forEach(el=>el.classList.remove('active'));const btn=document.getElementById('bn-'+v);if(btn)btn.classList.add('active');const nav=document.getElementById('nav-e1');const cupWrap=document.getElementById('cup-nav-wrap');if(v==='home'){nav.style.display='none';document.getElementById('nav-e2').style.display='none';document.getElementById('nav-home').style.display='';cupWrap.style.display='none';}else{nav.style.display='';if(v==='draws'){cupWrap.style.display='';renderCupNav();}else{cupWrap.style.display='none';}if(v==='history')histFilter={year:'all',etapa:'all',fase:'all',search:''};if(v==='h2h'){h2hP1='';h2hP2='';h2hDropdown=null;}}renderMain();}
 
 function setCup(cup) { currentCup = cup; currentRound = 'all'; editingId = null; renderCupNav(); renderMain(); }
 function setRound(r) { currentRound = r; editingId = null; renderMain(); }
@@ -684,16 +684,16 @@ function renderHome(){
   Object.values(CUP_STATE).forEach(cup=>cup.matches.forEach(m=>{if(!isBYE(m.score)){total++;if(m.done)done++;}}));
   const pct=total>0?Math.round(done/total*100):0;
   const stages=[
-    {id:1,name:'Etapa 1',dates:'Marzo – Abril 2026',desc:'Fase de Grupos + Playoffs · Copa Oro y Copa Plata',players:101,status:'current',clickable:true},
+    {id:1,name:'Etapa 1',dates:'Marzo – Abril 2026',desc:'Fase de Grupos + Playoffs · Copa Oro y Copa Plata',players:101,status:'done',clickable:true},
     {id:2,name:'Etapa 2',dates:'Mayo – Junio 2026',desc:'Fase de Grupos · Cat. A (18 grupos) · Cat. B (11 grupos)',players:116,status:'current',clickable:true},
     {id:3,name:'Etapa 3',dates:'Agosto – Septiembre 2026',desc:'Próximamente',status:'soon',clickable:false},
     {id:4,name:'Etapa 4',dates:'Octubre – Noviembre 2026',desc:'Próximamente',status:'soon',clickable:false},
   ];
   const cards=stages.map((s,i)=>{
-    const barCls=s.status==='current'?'current':'upcoming';
-    const pillCls=s.status==='current'?'pill-current':'pill-soon';
-    const pillTxt=s.status==='current'?'● En curso':'Próximamente';
-    const aCls=s.status==='current'?'s-active':'s-locked';
+    const barCls=s.status==='current'?'current':s.status==='done'?'done':'upcoming';
+    const pillCls=s.status==='current'?'pill-current':s.status==='done'?'pill-done':'pill-soon';
+    const pillTxt=s.status==='current'?'● En curso':s.status==='done'?'✓ Finalizada':'Próximamente';
+    const aCls=s.status==='current'||s.status==='done'?'s-active':'s-locked';
     const onclick=s.clickable?`onclick="openStage(${s.id})"`:'' ;
     const pctTag=s.id===1?`<div class="stage-meta-item">📊 ${pct}% playoffs</div>`:'';
     // E2 progress per category
