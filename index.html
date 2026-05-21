@@ -2416,38 +2416,24 @@ function bpBuildHTML(cupKey) {
   return html;
 }
 
-async function bpDownloadPDF() {
+function bpDownloadPDF() {
   var btn = document.getElementById('bp-dl-btn');
   if (btn) { btn.textContent = '⏳...'; btn.disabled = true; }
   try {
-    var jsPDF = window.jspdf ? window.jspdf.jsPDF : null;
-    if (!jsPDF) { showToast('Error: jsPDF no cargado'); return; }
-    var pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
-    var pw=420, ph=297;
-    var CUPS_INFO = ['e2_catA_oro','e2_catA_plata','e2_catB_oro','e2_catB_plata'];
-    for (var ci=0; ci<CUPS_INFO.length; ci++) {
-      var key = CUPS_INFO[ci];
-      var cup = E2_CUPS[key];
-      var wrap = document.createElement('div');
-      wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1100px;background:#fff';
-      wrap.innerHTML = bpBuildHTML(key);
-      document.body.appendChild(wrap);
-      await new Promise(function(r){ setTimeout(r,200); });
-      var canvas = await html2canvas(wrap, {scale:1.6,useCORS:true,backgroundColor:'#fff',logging:false,width:1100,height:wrap.scrollHeight});
-      document.body.removeChild(wrap);
-      if (ci>0) pdf.addPage([pw,ph],'landscape');
-      var iw=pw, ih=(canvas.height*pw)/canvas.width;
-      var sc = ih>ph ? ph/ih : 1;
-      pdf.addImage(canvas.toDataURL('image/png',0.9),'PNG',0,ih<ph?(ph-ih*sc)/2:0,iw*sc,Math.min(ih*sc,ph));
-    }
-    pdf.save('TheChampionship2026_Cuadros.pdf');
-    showToast('✓ PDF descargado');
-  } catch(err) {
-    showToast('Error: '+err.message);
+    var link = document.createElement('a');
+    link.href = 'cuadros_e2.pdf';
+    link.download = 'TheChampionship2026_Cuadros_Etapa2.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('✓ Descargando PDF...');
+  } catch(e) {
+    showToast('Error: ' + e.message);
   } finally {
     if (btn) { btn.textContent = '⬇ PDF'; btn.disabled = false; }
   }
 }
+
 
 async function downloadE2CuadrosPDF() {
   showBracketPreview();
