@@ -2336,103 +2336,191 @@ function exportE2Partidos() {
 
 function bpBuildHTML(cupKey) {
   var cup = E2_CUPS[cupKey];
-  if (!cup) return '<p style="padding:2rem;color:red">Error: copa no encontrada</p>';
-  var isOro = cup.type==='oro';
-  var accent = isOro ? '#B8860B' : '#7A8FA6';
+  if (!cup) return '<p style="padding:2rem;color:red">Copa no encontrada</p>';
+  var isOro = cup.type === 'oro';
+  var accent = isOro ? '#B8860B' : '#607080';
   var RO = ['32avos','16vos','8vos','4tos','Semis','Final'];
-  var RL = {'32avos':'32avos','16vos':'16vos de Final','8vos':'Octavos','4tos':'Cuartos','Semis':'Semifinales','Final':'FINAL'};
+  var RLBL = {'32avos':'PRELIM','16vos':'1st ROUND','8vos':'2nd ROUND',
+              '4tos':'QUARTERFINALS','Semis':'SEMIFINALS','Final':'FINAL'};
 
   var byRound = {};
   cup.matches.forEach(function(m){ (byRound[m.round]=byRound[m.round]||[]).push(m); });
   var rounds = RO.filter(function(r){ return byRound[r]; });
   var nr = rounds.length;
-  if (!nr) return '<p style="padding:2rem">Sin partidos</p>';
+  if (!nr) return '<p>Sin partidos</p>';
 
-  var nBase = 0;
-  rounds.forEach(function(r){ if(byRound[r].length>nBase) nBase=byRound[r].length; });
+  var nBase = Math.max.apply(null, rounds.map(function(r){ return byRound[r].length; }));
+  var TOTAL_H = Math.max(nBase * 56, 400);
+  var COL_W = 180;
+  var BOX_W = 148;
+  var ROW_H = Math.min(Math.floor(TOTAL_H / nBase * 0.40), 22);
+  var TOTAL_W = nr * COL_W + 20;
 
-  var colW = Math.floor(100/nr);
-  var slotH = Math.max(52, Math.floor(600/nBase));
-  var rowH = Math.min(22, Math.floor(slotH*0.38));
+  function mcy(ri, mi) {
+    var n = byRound[rounds[ri]].length;
+    var sh = TOTAL_H / n;
+    return Math.round((mi + 0.5) * sh);
+  }
+  function bx(ri) { return ri * COL_W + 10; }
 
-  var html = '<div style="background:#fff;min-width:'+(nr*160)+'px">';
+  // Build SVG connectors
+  var svgLines = '';
+  for (var ri = 0; ri < nr - 1; ri++) {
+    var ms_c = byRound[rounds[ri]];
+    var ms_n = byRound[rounds[ri+1]];
+    var xr = bx(ri) + BOX_W;
+    var xl = bx(ri+1);
+    var xm = Math.round(xr + (xl-xr)*0.5);
 
-  // Header
-  html += '<div style="background:#0D2B5E;color:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;border-radius:6px">';
-  html += '<div style="font-size:12px;font-weight:700">THE CHAMPIONSHIP 2026 — ETAPA 2</div>';
-  html += '<div style="background:'+accent+';padding:3px 12px;border-radius:10px;font-size:10px;font-weight:700">'+cup.label.toUpperCase()+'</div>';
-  html += '</div>';
+    var hasExplicit = ms_c.some(function(m){ return m.next_idx !== undefined && m.next_idx !== null; });
 
-  // Build bracket as table-like structure using flex
-  html += '<div style="display:flex;gap:0;align-items:flex-start">';
+    if (hasExplicit) {
+      var n_nxt = ms_n.length;
+      var sh_nxt = TOTAL_H / n_nxt;
+      ms_c.forEach(function(m, mi) {
+        if (m.next_idx === undefined || m.next_idx === null) return;
+        var cy_src = mcy(ri, mi);
+        var cy_nxt = Math.round((m.next_idx + 0.5) * sh_nxt);
+        var target_y = m.next_slot === 'p1' ? cy_nxt - ROW_H/2 : cy_nxt + ROW_H/2;
+        svgLines += '<line x1="'+xr+'" y1="'+cy_src+'" x2="'+xm+'" y2="'+cy_src+'" stroke="#ccc" stroke-width="1"/>';
+        svgLines += '<line x1="'+xm+'" y1="'+cy_src+'" x2="'+xm+'" y2="'+target_y+'" stroke="#ccc" stroke-width="1"/>';
+        svgLines += '<line x1="'+xm+'" y1="'+target_y+'" x2="'+xl+'" y2="'+target_y+'" stroke="#ccc" stroke-width="1"/>';
+      });
+    } else {
+      for (var nmi = 0; nmi < ms_n.length; nmi++) {
+        var i1 = nmi*2, i2 = nmi*2+1;
+        if (i1 >= ms_c.length || i2 >= ms_c.length) continue;
+        var cy1 = mcy(ri, i1), cy2 = mcy(ri, i2), cyn = mcy(ri+1, nmi);
+        svgLines += '<line x1="'+xr+'" y1="'+cy1+'" x2="'+xm+'" y2="'+cy1+'" stroke="#ccc" stroke-width="1"/>';
+        svgLines += '<line x1="'+xr+'" y1="'+cy2+'" x2="'+xm+'" y2="'+cy2+'" stroke="#ccc" stroke-width="1"/>';
+        svgLines += '<line x1="'+xm+'" y1="'+cy1+'" x2="'+xm+'" y2="'+cy2+'" stroke="#ccc" stroke-width="1"/>';
+        svgLines += '<line x1="'+xm+'" y1="'+cyn+'" x2="'+xl+'" y2="'+cyn+'" stroke="#ccc" stroke-width="1"/>';
+      }
+    }
+  }
 
+  // Build match boxes
+  var matchDivs = '';
   rounds.forEach(function(r, ri) {
     var ms = byRound[r];
     var n = ms.length;
-    var sh = (nBase * slotH) / n; // height per match in this round
+    var sh = TOTAL_H / n;
 
-    html += '<div style="flex:1;min-width:0">';
     // Round header
-    html += '<div style="background:#1A56A0;color:white;text-align:center;padding:4px 2px;font-size:9px;font-weight:700;margin:0 2px 4px;border-radius:3px">'+(RL[r]||r).toUpperCase()+'</div>';
+    matchDivs += '<div style="position:absolute;top:0;left:'+(bx(ri))+'px;width:'+BOX_W+'px;'+
+      'background:#1A56A0;color:white;text-align:center;padding:3px 0;font-size:9px;font-weight:700;'+
+      'border-radius:3px">'+(RLBL[r]||r)+'</div>';
 
     ms.forEach(function(m, mi) {
-      var p1=m.p1||''; var p2=m.p2||'';
-      var w=m.winner||'';
-      var t1=!p1; var t2=!p2;
-      var w1=(w&&w===p1); var w2=(w&&w===p2);
-      var top = mi * sh + (sh - rowH*2 - 2) / 2;
+      var cy = Math.round((mi + 0.5) * sh);
+      var p1 = m.p1||'', p2 = m.p2||'';
+      var w = m.winner||'', sc = m.score||'';
+      var t1 = !p1||p1==='Por definir', t2 = !p2||p2==='Por definir';
+      var w1 = w&&w===p1&&!t1, w2 = w&&w===p2&&!t2;
 
-      html += '<div style="margin:0 2px;height:'+sh+'px;position:relative">';
+      // Score display
+      var scoreStr = '';
+      if (sc && sc !== 'WO' && sc !== 'BYE') {
+        var sets = sc.match(/\d+-\d+/g) || [];
+        scoreStr = sets.slice(0,3).join(' ');
+      } else if (sc === 'WO') { scoreStr = 'W.O.'; }
 
-      // p1 row
-      var bg1 = t1?'#F5F5F5':(w1?'#E8F5EE':'#EEF4FB');
-      var col1 = w1?'#C0392B':(t1?'#9AA5B1':'#0D2B5E');
-      var fw1 = w1?'700':'400';
-      html += '<div style="position:absolute;top:'+top+'px;left:0;right:0;height:'+rowH+'px;background:'+bg1+';border:1px solid #C0D4E8;border-bottom:none;'+(w1?'border-left:3px solid #C0392B;':'')+';overflow:hidden;display:flex;align-items:center;padding:0 5px;box-sizing:border-box">';
-      html += '<span style="font-size:'+(rowH*0.62)+'px;color:'+col1+';font-weight:'+fw1+';overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">'+(t1?'<em style="color:#9AA5B1;font-style:normal;font-size:9px">por definir</em>':p1)+'</span>';
-      if (w1 && m.score && m.score!=='') html += '<span style="font-size:8px;color:#C0392B;margin-left:3px;flex-shrink:0">'+m.score+'</span>';
-      html += '</div>';
+      function rowHtml(name, isWin, isTbd, showScore) {
+        var bg = isWin ? '#fffacd' : (isTbd ? '#f0f0f0' : '#ffffff');
+        var fw = isWin ? '700' : '400';
+        var txt = isTbd ? '' : (name.length>22 ? name.slice(0,22) : name);
+        var scoreHtml = (isWin && showScore && scoreStr) ?
+          '<span style="float:right;font-size:8px;color:#888;margin-right:2px">'+scoreStr+'</span>' : '';
+        return '<div style="height:'+ROW_H+'px;line-height:'+ROW_H+'px;background:'+bg+';'+
+          'border:1px solid #ccc;padding:0 4px;font-size:'+Math.min(8,ROW_H*0.65)+'px;'+
+          'font-weight:'+fw+';overflow:hidden;white-space:nowrap;box-sizing:border-box">'+
+          scoreHtml+txt+'</div>';
+      }
 
-      // divider
-      html += '<div style="position:absolute;top:'+(top+rowH)+'px;left:0;right:0;height:1px;background:#C0D4E8"></div>';
-
-      // p2 row
-      var bg2 = t2?'#F5F5F5':(w2?'#E8F5EE':'#EEF4FB');
-      var col2 = w2?'#C0392B':(t2?'#9AA5B1':'#0D2B5E');
-      var fw2 = w2?'700':'400';
-      html += '<div style="position:absolute;top:'+(top+rowH+1)+'px;left:0;right:0;height:'+rowH+'px;background:'+bg2+';border:1px solid #C0D4E8;border-top:none;'+(w2?'border-left:3px solid #C0392B;':'')+';overflow:hidden;display:flex;align-items:center;padding:0 5px;box-sizing:border-box">';
-      html += '<span style="font-size:'+(rowH*0.62)+'px;color:'+col2+';font-weight:'+fw2+';overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">'+(t2?'<em style="color:#9AA5B1;font-style:normal;font-size:9px">por definir</em>':p2)+'</span>';
-      if (w2 && m.score && m.score!=='') html += '<span style="font-size:8px;color:#C0392B;margin-left:3px;flex-shrink:0">'+m.score+'</span>';
-      html += '</div>';
-
-      html += '</div>'; // match slot
+      var top = cy - ROW_H + 16; // +16 for header offset
+      matchDivs += '<div style="position:absolute;top:'+top+'px;left:'+bx(ri)+'px;width:'+BOX_W+'px">';
+      matchDivs += rowHtml(p1, w1, t1, w1);
+      matchDivs += '<div style="height:1px;background:#ccc"></div>';
+      matchDivs += rowHtml(p2, w2, t2, w2);
+      matchDivs += '</div>';
     });
-
-    html += '</div>'; // round column
   });
 
-  html += '</div>'; // flex row
-  html += '</div>'; // outer
-  return html;
+  var cat_p = cup.label.split(' - ')[0];
+  var copa_p = cup.label.split(' - ')[1] || cup.label;
+
+  return '<div style="background:white;font-family:Arial,Helvetica,sans-serif;display:inline-block;min-width:'+TOTAL_W+'px">'+
+    // Header
+    '<div style="background:#0D2B5E;color:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'+
+      '<div style="font-size:13px;font-weight:700">THE CHAMPIONSHIP 2026 \u2014 ETAPA 2</div>'+
+      '<div style="background:'+accent+';padding:3px 14px;border-radius:10px;font-size:9px;font-weight:700">'+cup.label.toUpperCase()+'</div>'+
+    '</div>'+
+    // Bracket
+    '<div style="position:relative;height:'+(TOTAL_H+20)+'px;overflow:visible;padding-top:20px">'+
+      '<svg style="position:absolute;top:20px;left:0;width:100%;height:'+TOTAL_H+'px;overflow:visible">'+
+        svgLines+
+      '</svg>'+
+      matchDivs+
+    '</div>'+
+    // Footer
+    '<div style="background:#0D2B5E;color:white;text-align:center;padding:4px;font-size:7px;margin-top:4px">'+
+      'The Championship 2026 \u00b7 Etapa 2 \u00b7 '+cat_p+' \u00b7 '+copa_p+' \u00b7 thechampionship2026.github.io'+
+    '</div>'+
+  '</div>';
 }
 
 function bpDownloadPDF() {
   var btn = document.getElementById('bp-dl-btn');
-  if (btn) { btn.textContent = '⏳...'; btn.disabled = true; }
-  try {
-    var link = document.createElement('a');
-    link.href = 'cuadros_e2.pdf';
-    link.download = 'TheChampionship2026_Cuadros_Etapa2.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('✓ Descargando PDF...');
-  } catch(e) {
-    showToast('Error: ' + e.message);
-  } finally {
-    if (btn) { btn.textContent = '⬇ PDF'; btn.disabled = false; }
+  if (btn) { btn.textContent = '\u23f3 Generando...'; btn.disabled = true; }
+  var cups = [
+    {key:'e2_catA_oro',   label:'Cat. A \u2014 Copa de Oro'},
+    {key:'e2_catA_plata', label:'Cat. A \u2014 Copa de Plata'},
+    {key:'e2_catB_oro',   label:'Cat. B \u2014 Copa de Oro'},
+    {key:'e2_catB_plata', label:'Cat. B \u2014 Copa de Plata'},
+  ];
+  var pw = 420, ph = 297;
+  var jsPDF = window.jspdf ? window.jspdf.jsPDF : null;
+  if (!jsPDF) { showToast('jsPDF no disponible'); if(btn){btn.textContent='\u2b07 PDF';btn.disabled=false;} return; }
+  var pdf = new jsPDF({ orientation:'landscape', unit:'mm', format:'a3' });
+  var ci = 0;
+
+  function doNext() {
+    if (ci >= cups.length) {
+      pdf.save('TheChampionship2026_Cuadros_Etapa2.pdf');
+      showToast('\u2713 PDF descargado');
+      if (btn) { btn.textContent = '\u2b07 PDF'; btn.disabled = false; }
+      return;
+    }
+    var cu = cups[ci];
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:-9999px;top:0;background:white;padding:8px';
+    wrap.innerHTML = bpBuildHTML(cu.key);
+    document.body.appendChild(wrap);
+    setTimeout(function() {
+      html2canvas(wrap, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        logging: false,
+        width: wrap.scrollWidth, height: wrap.scrollHeight
+      }).then(function(canvas) {
+        document.body.removeChild(wrap);
+        var imgData = canvas.toDataURL('image/png', 0.92);
+        if (ci > 0) pdf.addPage([pw, ph], 'landscape');
+        var iw = pw, ih = (canvas.height * pw) / canvas.width;
+        var sc = ih > ph ? ph/ih : 1;
+        var yOff = ih < ph ? (ph - ih*sc)/2 : 0;
+        pdf.addImage(imgData, 'PNG', 0, yOff, iw*sc, Math.min(ih*sc, ph));
+        ci++;
+        doNext();
+      }).catch(function(e) {
+        document.body.removeChild(wrap);
+        showToast('Error: '+e.message);
+        if (btn) { btn.textContent = '\u2b07 PDF'; btn.disabled = false; }
+      });
+    }, 200);
   }
+  doNext();
 }
+
 
 
 async function downloadE2CuadrosPDF() {
