@@ -2243,36 +2243,13 @@ function exportE2Partidos() {
   var cups = window.E2_CUPS || E2_CUPS;
   var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
 
-  // Collect ALL pending matches across all cups into one list
-  var allRows = [];
-  var totalPending = 0;
-  CUPS_INFO.forEach(function(ci) {
-    var cup = cups[ci.key]; if (!cup) return;
-    RO.forEach(function(r) {
-      cup.matches.forEach(function(m) {
-        if (!m.p1||!m.p2||m.p1==='Por definir'||m.p2==='Por definir') return;
-        allRows.push({
-          copa: ci.label,
-          type: ci.type,
-          ronda: RL[m.round]||m.round,
-          p1: m.p1,
-          p2: m.p2,
-          done: !!m.done,
-          score: m.score||'',
-          winner: m.winner||''
-        });
-        if (!m.done) totalPending++;
-      });
-    });
-  });
-
   var css = [
     '*{box-sizing:border-box;margin:0;padding:0}',
     'body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff;padding:24px 28px}',
     '.page-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;border-bottom:3px solid #0D2B5E;padding-bottom:12px}',
     '.page-title{font-size:18px;font-weight:700;color:#0D2B5E;letter-spacing:.5px}',
     '.page-sub{font-size:10px;color:#888;margin-top:3px}',
-    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.3px}',
+    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600}',
     '.cup-section{margin-bottom:28px}',
     '.cup-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:7px 10px;border-radius:4px}',
     '.cup-header-oro{background:#FFF8E7;border-left:4px solid #B8860B}',
@@ -2280,103 +2257,93 @@ function exportE2Partidos() {
     '.cup-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}',
     '.cup-name-oro{color:#B8860B}',
     '.cup-name-plata{color:#607d8b}',
-    '.cup-count{font-size:10px;color:#888;font-weight:400}',
+    '.cup-count{font-size:10px;color:#888}',
     'table{width:100%;border-collapse:collapse;table-layout:fixed}',
-    'col.num{width:32px} col.ronda{width:100px} col.p1{width:auto} col.vs{width:24px} col.p2{width:auto} col.result{width:110px}',
+    'colgroup col.num{width:32px}colgroup col.ronda{width:100px}colgroup col.p1{width:auto}colgroup col.vs{width:26px}colgroup col.p2{width:auto}colgroup col.result{width:120px}',
     'thead tr{background:#0D2B5E}',
     'thead th{color:white;font-size:9.5px;font-weight:600;padding:6px 8px;text-align:left;letter-spacing:.4px;text-transform:uppercase}',
     'thead th.center{text-align:center}',
     'tbody tr{border-bottom:1px solid #e8eef4}',
     'tbody tr:nth-child(even){background:#f8fafc}',
-    'tbody tr:hover{background:#eef4ff}',
     'tbody td{padding:6px 8px;font-size:10.5px;vertical-align:middle}',
     'td.num{color:#aaa;text-align:center;font-size:9px}',
-    'td.ronda{color:#1A56A0;font-weight:600;font-size:9.5px}',
-    'td.vs{text-align:center;color:#ccc;font-size:9px;font-weight:600}',
-    'td.result{color:#aaa;font-family:monospace;font-size:10px;text-align:center}',
-    'td.done{color:#2e7d32;font-weight:600;font-size:10px;text-align:center}',
-    'td.winner{color:#C0392B;font-weight:700}',
-    '.summary{margin-top:20px;padding:10px 14px;background:#f8fafc;border:1px solid #e0e8f0;border-radius:5px;font-size:10.5px;color:#555;display:flex;gap:24px}',
-    '.sum-item strong{color:#0D2B5E;font-size:12px}',
-    '@media print{body{padding:12px 16px}.btn-print{display:none}table{page-break-inside:auto}tr{page-break-inside:avoid}}'
+    'td.ronda{color:#1A56A0;font-weight:600;font-size:9.5px;white-space:nowrap}',
+    'td.vs{text-align:center;color:#bbb;font-size:9px;font-weight:600}',
+    'td.result{color:#ccc;font-family:monospace;font-size:10px;text-align:center;letter-spacing:2px}',
+    '.empty{color:#aaa;font-style:italic;padding:10px 8px;font-size:10px}',
+    '.summary{margin-top:20px;padding:10px 14px;background:#f8fafc;border:1px solid #e0e8f0;border-radius:5px;display:flex;gap:24px;font-size:10.5px;color:#555}',
+    '.summary strong{color:#0D2B5E;font-size:12px}',
+    '@media print{body{padding:12px 16px}.btn-print{display:none}tr{page-break-inside:avoid}}'
   ].join('\n');
 
   var body = '';
   body += '<div class="page-header">';
   body += '<div><div class="page-title">THE CHAMPIONSHIP 2026 \u2014 ETAPA 2</div>';
-  body += '<div class="page-sub">Fixture de partidos por Copa \u00b7 Generado el '+now+'</div></div>';
-  body += '<button class="btn-print no-print" onclick="window.print()">\uD83D\uDDA8 Imprimir / Guardar PDF</button>';
+  body += '<div class="page-sub">Partidos listos para jugarse \u00b7 Generado el ' + now + '</div></div>';
+  body += '<button class="btn-print" onclick="window.print()">\uD83D\uDDA8\uFE0F Imprimir / Guardar PDF</button>';
   body += '</div>';
 
-  // One section per cup
+  var grandTotal = 0;
+
   CUPS_INFO.forEach(function(ci) {
     var cup = cups[ci.key]; if (!cup) return;
-    var cupRows = [];
+
+    // Filter: ONLY matches where BOTH players are defined AND not yet played, deduplicated
+    var seen = {};
+    var pending = [];
     RO.forEach(function(r) {
-      cup.matches.forEach(function(m) {
-        if (!m.p1||!m.p2||m.p1==='Por definir'||m.p2==='Por definir') return;
-        cupRows.push({ronda:RL[m.round]||m.round,p1:m.p1,p2:m.p2,done:!!m.done,score:m.score||'',winner:m.winner||''});
+      (cup.matches||[]).forEach(function(m) {
+        if (m.done) return;                              // already played
+        var p1 = (m.p1||'').trim(), p2 = (m.p2||'').trim();
+        if (!p1 || !p2) return;                          // missing player
+        if (p1 === 'Por definir' || p2 === 'Por definir') return; // TBD
+        if (m.round !== r) return;
+        // Dedup key (order-independent)
+        var key = [p1,p2].sort().join('||') + '||' + r;
+        if (seen[key]) return;
+        seen[key] = true;
+        pending.push({ronda: RL[r]||r, p1: p1, p2: p2});
       });
     });
-    if (!cupRows.length) return;
 
-    var pending = cupRows.filter(function(r){return !r.done;}).length;
-    var done = cupRows.filter(function(r){return r.done;}).length;
-    var cls = ci.type==='oro' ? 'oro' : 'plata';
+    var cls = ci.type === 'oro' ? 'oro' : 'plata';
+    grandTotal += pending.length;
 
     body += '<div class="cup-section">';
-    body += '<div class="cup-header cup-header-'+cls+'">';
-    body += '<span class="cup-name cup-name-'+cls+'">'+ci.label+'</span>';
-    body += '<span class="cup-count">\u2014 '+cupRows.length+' partidos \u00b7 '+done+' jugados \u00b7 '+pending+' pendientes</span>';
+    body += '<div class="cup-header cup-header-' + cls + '">';
+    body += '<span class="cup-name cup-name-' + cls + '">' + ci.label + '</span>';
+    body += '<span class="cup-count">\u2014 ' + pending.length + ' partido' + (pending.length!==1?'s':'') + ' pendiente' + (pending.length!==1?'s':'') + '</span>';
     body += '</div>';
-    body += '<table>';
-    body += '<colgroup><col class="num"><col class="ronda"><col class="p1"><col class="vs"><col class="p2"><col class="result"></colgroup>';
-    body += '<thead><tr>';
-    body += '<th class="center">#</th><th>Ronda</th><th>Jugador 1</th><th class="center">vs</th><th>Jugador 2</th><th class="center">Resultado</th>';
-    body += '</tr></thead><tbody>';
 
-    cupRows.forEach(function(row, i) {
-      var resultCell;
-      if (row.done && row.score) {
-        var winnerName = row.winner === row.p1 ? row.p1 : row.p2;
-        var shortName = winnerName.split(' ').pop(); // last name
-        resultCell = '<td class="done">\u2713 '+row.score+'</td>';
-      } else {
-        resultCell = '<td class="result">________________________</td>';
-      }
-      var p1cls = row.done && row.winner===row.p1 ? ' class="winner"' : '';
-      var p2cls = row.done && row.winner===row.p2 ? ' class="winner"' : '';
-      body += '<tr>';
-      body += '<td class="num">'+(i+1)+'</td>';
-      body += '<td class="ronda">'+row.ronda+'</td>';
-      body += '<td'+p1cls+'>'+row.p1+'</td>';
-      body += '<td class="vs">vs</td>';
-      body += '<td'+p2cls+'>'+row.p2+'</td>';
-      body += resultCell;
-      body += '</tr>';
-    });
-    body += '</tbody></table></div>';
+    if (!pending.length) {
+      body += '<div class="empty">No hay partidos pendientes en esta copa.</div>';
+    } else {
+      body += '<table>';
+      body += '<colgroup><col class="num"><col class="ronda"><col class="p1"><col class="vs"><col class="p2"><col class="result"></colgroup>';
+      body += '<thead><tr><th class="center">#</th><th>Ronda</th><th>Jugador 1</th><th class="center">vs</th><th>Jugador 2</th><th class="center">Resultado</th></tr></thead>';
+      body += '<tbody>';
+      pending.forEach(function(row, i) {
+        body += '<tr>';
+        body += '<td class="num">' + (i+1) + '</td>';
+        body += '<td class="ronda">' + row.ronda + '</td>';
+        body += '<td>' + row.p1 + '</td>';
+        body += '<td class="vs">vs</td>';
+        body += '<td>' + row.p2 + '</td>';
+        body += '<td class="result">________________________</td>';
+        body += '</tr>';
+      });
+      body += '</tbody></table>';
+    }
+    body += '</div>';
   });
 
-  // Summary
-  var totalAll = 0, doneAll = 0;
-  CUPS_INFO.forEach(function(ci){
-    var cup=cups[ci.key]; if(!cup) return;
-    cup.matches.forEach(function(m){
-      if(!m.p1||!m.p2||m.p1==='Por definir'||m.p2==='Por definir') return;
-      totalAll++;
-      if(m.done) doneAll++;
-    });
-  });
   body += '<div class="summary">';
-  body += '<div class="sum-item">Total partidos: <strong>'+totalAll+'</strong></div>';
-  body += '<div class="sum-item">Jugados: <strong style="color:#2e7d32">'+doneAll+'</strong></div>';
-  body += '<div class="sum-item">Pendientes: <strong style="color:#C0392B">'+(totalAll-doneAll)+'</strong></div>';
+  body += '<div>Total partidos pendientes: <strong>' + grandTotal + '</strong></div>';
   body += '</div>';
 
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fixture Etapa 2 \u2014 The Championship 2026</title><style>'+css+'</style></head><body>'+body+'</body></html>';
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fixture Etapa 2</title><style>' + css + '</style></head><body>' + body + '</body></html>';
 
-  var w = window.open('','_blank','width=860,height=960');
+  var w = window.open('', '_blank', 'width=860,height=960');
   if (w) { w.document.write(html); w.document.close(); w.focus(); }
   else showToast('Permitir pop-ups para ver el reporte');
 }
