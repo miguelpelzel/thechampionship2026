@@ -2239,100 +2239,148 @@ function exportE2Partidos() {
     {key:'e2_catB_plata', label:'Cat. B — Copa de Plata', type:'plata'},
   ];
   var RO = ['32avos','16vos','8vos','4tos','Semis','Final'];
-  var RL = {'32avos':'32avos de Final','16vos':'16vos de Final','8vos':'Octavos de Final',
-            '4tos':'Cuartos de Final','Semis':'Semifinales','Final':'Final'};
+  var RL = {'32avos':'Prelim.','16vos':'1ra Ronda','8vos':'Octavos','4tos':'Cuartos','Semis':'Semis','Final':'Final'};
   var cups = window.E2_CUPS || E2_CUPS;
+  var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
 
-  // Build HTML for print/export
-  var now = new Date().toLocaleDateString('es-UY', {day:'2-digit',month:'2-digit',year:'numeric'});
-  var html = '<html><head><meta charset="utf-8">';
-  html += '<style>';
-  html += 'body{font-family:Arial,sans-serif;font-size:12px;color:#0D2B5E;margin:20px}';
-  html += 'h1{font-size:16px;color:#0D2B5E;margin:0 0 4px}';
-  html += 'h2{font-size:13px;color:#1A56A0;margin:14px 0 6px;border-bottom:2px solid #1A56A0;padding-bottom:3px}';
-  html += 'h3{font-size:11px;color:#555;margin:10px 0 4px;font-weight:600}';
-  html += '.subtitle{font-size:10px;color:#888;margin-bottom:16px}';
-  html += 'table{width:100%;border-collapse:collapse;margin-bottom:8px}';
-  html += 'th{background:#0D2B5E;color:white;padding:5px 8px;font-size:10px;text-align:left;font-weight:600}';
-  html += 'td{padding:5px 8px;border-bottom:1px solid #e0e8f0;font-size:11px}';
-  html += 'tr:nth-child(even){background:#f4f7fb}';
-  html += '.oro{color:#B8860B;font-weight:700}';
-  html += '.plata{color:#607d8b;font-weight:700}';
-  html += '.round-badge{background:#EBF3FF;color:#1A56A0;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600}';
-  html += '.num{color:#999;text-align:center;width:28px}';
-  html += '@media print{body{margin:10px}.no-print{display:none}}';
-  html += '</style></head><body>';
-
-  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
-  html += '<div><h1>THE CHAMPIONSHIP 2026 — Etapa 2</h1>';
-  html += '<div class="subtitle">Partidos pendientes con rivales definidos · Generado el ' + now + '</div></div>';
-  html += '<button class="no-print" onclick="window.print()" style="background:#0D2B5E;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px">🖨 Imprimir / Guardar PDF</button>';
-  html += '</div>';
-
-  var totalPartidos = 0;
-
+  // Collect ALL pending matches across all cups into one list
+  var allRows = [];
+  var totalPending = 0;
   CUPS_INFO.forEach(function(ci) {
-    var cup = cups[ci.key];
-    if (!cup) return;
-
-    // Get pending matches with both players defined, grouped by round
-    var byRound = {};
-    cup.matches.forEach(function(m) {
-      if (!m.p1 || !m.p2) return;
-      if (m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
-      if (m.done) return;
-      (byRound[m.round] = byRound[m.round] || []).push(m);
-    });
-
-    var rounds = RO.filter(function(r){ return byRound[r] && byRound[r].length; });
-    if (!rounds.length) return;
-
-    var totalCup = rounds.reduce(function(s,r){ return s + byRound[r].length; }, 0);
-    totalPartidos += totalCup;
-
-    var typeLabel = ci.type === 'oro' ? 'Oro' : 'Plata';
-    var typeClass = ci.type === 'oro' ? 'oro' : 'plata';
-
-    html += '<h2><span class="' + typeClass + '">' + ci.label.toUpperCase() + '</span>';
-    html += ' <span style="font-size:10px;font-weight:400;color:#888">(' + totalCup + ' partidos)</span></h2>';
-
-    rounds.forEach(function(r) {
-      var ms = byRound[r];
-      html += '<h3><span class="round-badge">' + (RL[r]||r) + '</span></h3>';
-      html += '<table><tr><th class="num">#</th><th>Jugador 1</th><th style="width:30px;text-align:center">vs</th><th>Jugador 2</th><th style="width:80px">Resultado</th></tr>';
-      ms.forEach(function(m, i) {
-        html += '<tr>';
-        html += '<td class="num">' + (i+1) + '</td>';
-        html += '<td>' + m.p1 + '</td>';
-        html += '<td style="text-align:center;color:#999;font-size:10px">vs</td>';
-        html += '<td>' + m.p2 + '</td>';
-        html += '<td style="color:#ccc;font-size:10px;text-align:center">___________</td>';
-        html += '</tr>';
+    var cup = cups[ci.key]; if (!cup) return;
+    RO.forEach(function(r) {
+      cup.matches.forEach(function(m) {
+        if (!m.p1||!m.p2||m.p1==='Por definir'||m.p2==='Por definir') return;
+        allRows.push({
+          copa: ci.label,
+          type: ci.type,
+          ronda: RL[m.round]||m.round,
+          p1: m.p1,
+          p2: m.p2,
+          done: !!m.done,
+          score: m.score||'',
+          winner: m.winner||''
+        });
+        if (!m.done) totalPending++;
       });
-      html += '</table>';
     });
   });
 
-  if (totalPartidos === 0) {
-    html += '<p style="color:#888;font-style:italic;padding:20px">No hay partidos pendientes con rivales definidos.</p>';
-  } else {
-    html += '<div style="margin-top:16px;padding:8px 12px;background:#f4f7fb;border-radius:6px;font-size:11px;color:#555">';
-    html += 'Total de partidos: <strong>' + totalPartidos + '</strong>';
-    html += '</div>';
-  }
+  var css = [
+    '*{box-sizing:border-box;margin:0;padding:0}',
+    'body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff;padding:24px 28px}',
+    '.page-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;border-bottom:3px solid #0D2B5E;padding-bottom:12px}',
+    '.page-title{font-size:18px;font-weight:700;color:#0D2B5E;letter-spacing:.5px}',
+    '.page-sub{font-size:10px;color:#888;margin-top:3px}',
+    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.3px}',
+    '.cup-section{margin-bottom:28px}',
+    '.cup-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:7px 10px;border-radius:4px}',
+    '.cup-header-oro{background:#FFF8E7;border-left:4px solid #B8860B}',
+    '.cup-header-plata{background:#F0F4F8;border-left:4px solid #607d8b}',
+    '.cup-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}',
+    '.cup-name-oro{color:#B8860B}',
+    '.cup-name-plata{color:#607d8b}',
+    '.cup-count{font-size:10px;color:#888;font-weight:400}',
+    'table{width:100%;border-collapse:collapse;table-layout:fixed}',
+    'col.num{width:32px} col.ronda{width:100px} col.p1{width:auto} col.vs{width:24px} col.p2{width:auto} col.result{width:110px}',
+    'thead tr{background:#0D2B5E}',
+    'thead th{color:white;font-size:9.5px;font-weight:600;padding:6px 8px;text-align:left;letter-spacing:.4px;text-transform:uppercase}',
+    'thead th.center{text-align:center}',
+    'tbody tr{border-bottom:1px solid #e8eef4}',
+    'tbody tr:nth-child(even){background:#f8fafc}',
+    'tbody tr:hover{background:#eef4ff}',
+    'tbody td{padding:6px 8px;font-size:10.5px;vertical-align:middle}',
+    'td.num{color:#aaa;text-align:center;font-size:9px}',
+    'td.ronda{color:#1A56A0;font-weight:600;font-size:9.5px}',
+    'td.vs{text-align:center;color:#ccc;font-size:9px;font-weight:600}',
+    'td.result{color:#aaa;font-family:monospace;font-size:10px;text-align:center}',
+    'td.done{color:#2e7d32;font-weight:600;font-size:10px;text-align:center}',
+    'td.winner{color:#C0392B;font-weight:700}',
+    '.summary{margin-top:20px;padding:10px 14px;background:#f8fafc;border:1px solid #e0e8f0;border-radius:5px;font-size:10.5px;color:#555;display:flex;gap:24px}',
+    '.sum-item strong{color:#0D2B5E;font-size:12px}',
+    '@media print{body{padding:12px 16px}.btn-print{display:none}table{page-break-inside:auto}tr{page-break-inside:avoid}}'
+  ].join('\n');
 
-  html += '</body></html>';
+  var body = '';
+  body += '<div class="page-header">';
+  body += '<div><div class="page-title">THE CHAMPIONSHIP 2026 \u2014 ETAPA 2</div>';
+  body += '<div class="page-sub">Fixture de partidos por Copa \u00b7 Generado el '+now+'</div></div>';
+  body += '<button class="btn-print no-print" onclick="window.print()">\uD83D\uDDA8 Imprimir / Guardar PDF</button>';
+  body += '</div>';
 
-  // Open in new window for print/save as PDF
-  var w = window.open('', '_blank', 'width=800,height=900');
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-  } else {
-    showToast('Permitir pop-ups para descargar el listado');
-  }
+  // One section per cup
+  CUPS_INFO.forEach(function(ci) {
+    var cup = cups[ci.key]; if (!cup) return;
+    var cupRows = [];
+    RO.forEach(function(r) {
+      cup.matches.forEach(function(m) {
+        if (!m.p1||!m.p2||m.p1==='Por definir'||m.p2==='Por definir') return;
+        cupRows.push({ronda:RL[m.round]||m.round,p1:m.p1,p2:m.p2,done:!!m.done,score:m.score||'',winner:m.winner||''});
+      });
+    });
+    if (!cupRows.length) return;
+
+    var pending = cupRows.filter(function(r){return !r.done;}).length;
+    var done = cupRows.filter(function(r){return r.done;}).length;
+    var cls = ci.type==='oro' ? 'oro' : 'plata';
+
+    body += '<div class="cup-section">';
+    body += '<div class="cup-header cup-header-'+cls+'">';
+    body += '<span class="cup-name cup-name-'+cls+'">'+ci.label+'</span>';
+    body += '<span class="cup-count">\u2014 '+cupRows.length+' partidos \u00b7 '+done+' jugados \u00b7 '+pending+' pendientes</span>';
+    body += '</div>';
+    body += '<table>';
+    body += '<colgroup><col class="num"><col class="ronda"><col class="p1"><col class="vs"><col class="p2"><col class="result"></colgroup>';
+    body += '<thead><tr>';
+    body += '<th class="center">#</th><th>Ronda</th><th>Jugador 1</th><th class="center">vs</th><th>Jugador 2</th><th class="center">Resultado</th>';
+    body += '</tr></thead><tbody>';
+
+    cupRows.forEach(function(row, i) {
+      var resultCell;
+      if (row.done && row.score) {
+        var winnerName = row.winner === row.p1 ? row.p1 : row.p2;
+        var shortName = winnerName.split(' ').pop(); // last name
+        resultCell = '<td class="done">\u2713 '+row.score+'</td>';
+      } else {
+        resultCell = '<td class="result">________________________</td>';
+      }
+      var p1cls = row.done && row.winner===row.p1 ? ' class="winner"' : '';
+      var p2cls = row.done && row.winner===row.p2 ? ' class="winner"' : '';
+      body += '<tr>';
+      body += '<td class="num">'+(i+1)+'</td>';
+      body += '<td class="ronda">'+row.ronda+'</td>';
+      body += '<td'+p1cls+'>'+row.p1+'</td>';
+      body += '<td class="vs">vs</td>';
+      body += '<td'+p2cls+'>'+row.p2+'</td>';
+      body += resultCell;
+      body += '</tr>';
+    });
+    body += '</tbody></table></div>';
+  });
+
+  // Summary
+  var totalAll = 0, doneAll = 0;
+  CUPS_INFO.forEach(function(ci){
+    var cup=cups[ci.key]; if(!cup) return;
+    cup.matches.forEach(function(m){
+      if(!m.p1||!m.p2||m.p1==='Por definir'||m.p2==='Por definir') return;
+      totalAll++;
+      if(m.done) doneAll++;
+    });
+  });
+  body += '<div class="summary">';
+  body += '<div class="sum-item">Total partidos: <strong>'+totalAll+'</strong></div>';
+  body += '<div class="sum-item">Jugados: <strong style="color:#2e7d32">'+doneAll+'</strong></div>';
+  body += '<div class="sum-item">Pendientes: <strong style="color:#C0392B">'+(totalAll-doneAll)+'</strong></div>';
+  body += '</div>';
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fixture Etapa 2 \u2014 The Championship 2026</title><style>'+css+'</style></head><body>'+body+'</body></html>';
+
+  var w = window.open('','_blank','width=860,height=960');
+  if (w) { w.document.write(html); w.document.close(); w.focus(); }
+  else showToast('Permitir pop-ups para ver el reporte');
 }
+
 
 function bpBuildHTML(cupKey) {
   var cup = E2_CUPS[cupKey];
