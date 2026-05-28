@@ -301,18 +301,17 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
         // Re-render only what's needed, never force navigation
         // After processing all Firebase docs, rebuild propagation from scratch
         // This ensures correct order: reset to originals, apply scores, propagate round by round
-        if(changed && window.E2_CUPS_ORIG) {
+        if((changed || !window._e2Loaded) && window.E2_CUPS_ORIG) {
           const ORDER_R=['32avos','16vos','8vos','4tos','Semis','Final'];
           Object.keys(window.E2_CUPS).forEach(function(cupKey) {
             const cup = window.E2_CUPS[cupKey];
             const orig = window.E2_CUPS_ORIG[cupKey];
             if(!cup||!orig) return;
-            // Step 1: reset all matches to original seed assignments
+            // Step 1: reset p1/p2 for ALL matches to original values
+            // (this resets display names only, scores/winner/done are preserved)
             cup.matches.forEach(function(m,i) {
               const o = orig.matches[i];
-              if(!m.done) {
-                m.p1 = o.p1; m.p2 = o.p2;
-              }
+              m.p1 = o.p1; m.p2 = o.p2;  // always reset, including done matches
             });
             // Step 2: propagate winners round by round in order
             ORDER_R.forEach(function(r) {
@@ -2172,8 +2171,8 @@ function propagateE2Cup(cup, finishedMatch) {
   // Use explicit next_idx/next_slot if defined (for prelim→main bracket)
   if(finishedMatch.next_idx!==undefined && finishedMatch.next_slot!==undefined){
     const next=nextMatches[finishedMatch.next_idx];
-    if(!next||next.done) return;
-    next[finishedMatch.next_slot]=finishedMatch.winner;
+    if(!next) return;
+    next[finishedMatch.next_slot]=finishedMatch.winner;  // always overwrite
     return;
   }
   // Default: sequential pos/2 mapping
@@ -2183,8 +2182,8 @@ function propagateE2Cup(cup, finishedMatch) {
   const nextIdx=Math.floor(pos/2);
   const slot=pos%2;
   const next=nextMatches[nextIdx];
-  if(!next||next.done) return;
-  if(slot===0) next.p1=finishedMatch.winner;
+  if(!next) return;
+  if(slot===0) next.p1=finishedMatch.winner;  // always overwrite
   else next.p2=finishedMatch.winner;
 }
 
