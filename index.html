@@ -252,7 +252,13 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 .forEach(m=>propagateWinner(matches,m));
             });
           }
-          // Data updated in memory - view will re-render when user navigates
+          // Re-render players view if currently open
+          if(view==='players'){
+            try{
+              if(selectedPlayer) renderPlayerDetail(selectedPlayer);
+              else renderPlayersList();
+            }catch(e){}
+          }
         }
       });
     };
@@ -327,7 +333,13 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
           });
         }
         window._e2Loaded=true;
-        // Data updated in memory only - no automatic navigation
+        // Re-render players view if currently open (keeps search focus via renderPlayersList)
+        if(view==='players'){
+          try{
+            if(selectedPlayer) renderPlayerDetail(selectedPlayer);
+            else renderPlayersList();
+          }catch(e){}
+        }
       });
     };
     window.addEventListener('load',()=>{
@@ -1056,37 +1068,42 @@ function matchCard(m,name){
 
 function buildPlayerSummary(name,allMatches,tw,tl,winPct){
   if(!allMatches.length)return '';
+  const _isWO=m=>m.score==='WO'||m.score==='WO 1'||m.score==='WO 2';
+  const _isNJ=m=>m.score==='NJ';
+  const playedMatches=allMatches.filter(m=>!_isNJ(m));
   const lines=[];
   const byYear={};
-  allMatches.forEach(m=>{(byYear[m.year]=byYear[m.year]||[]).push(m);});
+  playedMatches.forEach(m=>{(byYear[m.year]=byYear[m.year]||[]).push(m);});
   let bestYear=null,bestPct=-1;
   Object.entries(byYear).forEach(([yr,ms])=>{
-    const w=ms.filter(m=>m.winner===name).length;
-    const l=ms.filter(m=>m.winner&&m.winner!==name).length;
+    const w=ms.filter(m=>m.winner===name&&!_isWO(m)).length;
+    const l=ms.filter(m=>m.winner&&m.winner!==name&&!_isWO(m)).length;
     const pct=(w+l)>0?w/(w+l):0;
     if(pct>bestPct&&(w+l)>=3){bestPct=pct;bestYear=yr;}
   });
-  const finals=allMatches.filter(m=>m.instancia==='Final');
+  const finals=playedMatches.filter(m=>m.instancia==='Final');
   const finalsWon=finals.filter(m=>m.winner===name);
   let maxStreak=0,cur=0;
-  [...allMatches].reverse().forEach(m=>{if(m.winner===name){cur++;maxStreak=Math.max(maxStreak,cur);}else if(m.winner)cur=0;});
-  const etapas=new Set(allMatches.map(m=>m.year+'-E'+m.etapa));
-  if(winPct>=60)lines.push(`Jugador dominante con ${winPct}% de efectividad en ${allMatches.length} partidos.`);
-  else if(winPct>=40)lines.push(`${tw} victorias y ${tl} derrotas en ${allMatches.length} partidos a lo largo de ${etapas.size} etapa${etapas.size!==1?'s':''}.`);
-  else lines.push(`${allMatches.length} partidos disputados en ${etapas.size} etapa${etapas.size!==1?'s':''}.`);
+  [...playedMatches].reverse().forEach(m=>{if(m.winner===name){cur++;maxStreak=Math.max(maxStreak,cur);}else if(m.winner)cur=0;});
+  const etapas=new Set(playedMatches.map(m=>m.year+'-E'+m.etapa));
+  const totalPlayed=tw+tl;
+  if(winPct>=60)lines.push(`Jugador dominante con ${winPct}% de efectividad en ${totalPlayed} partido${totalPlayed!==1?'s':''}.`);
+  else if(winPct>=40)lines.push(`${tw} victorias y ${tl} derrotas en ${totalPlayed} partido${totalPlayed!==1?'s':''} a lo largo de ${etapas.size} etapa${etapas.size!==1?'s':''}.`);
+  else lines.push(`${totalPlayed} partido${totalPlayed!==1?'s':''} disputado${totalPlayed!==1?'s':''} en ${etapas.size} etapa${etapas.size!==1?'s':''}.`);
   if(finalsWon.length>0)lines.push(`🏆 Campeón en ${finalsWon.length} final${finalsWon.length>1?'es':''}.`);
   else if(finals.length>0)lines.push(`🥈 Llegó a ${finals.length} final${finals.length>1?'es':''}.`);
   if(maxStreak>=4)lines.push(`🔥 Mejor racha: ${maxStreak} victorias consecutivas.`);
   if(bestYear&&bestPct>=0.7)lines.push(`⭐ Mejor año: ${bestYear} (${Math.round(bestPct*100)}% de efectividad).`);
-  return lines.length?`<div class="player-summary">${lines.join(' ')}</div>`:'';
+  return lines.length?`<div class=\"player-summary\">${lines.join(' ')}</div>`:'';
 }
 
 function renderPlayerDetail(name){
   const d=PLAYER_DATA[name];
   const allMatches = getAllPlayerMatches(name);
   const _isWO=m=>m.score==='WO'||m.score==='WO 1'||m.score==='WO 2';
-  const tw=allMatches.filter(m=>m.winner===name&&!_isWO(m)).length;
-  const tl=allMatches.filter(m=>m.winner&&m.winner!==name&&!_isWO(m)).length;
+  const _isNJ=m=>m.score==='NJ';
+  const tw=allMatches.filter(m=>m.winner===name&&!_isWO(m)&&!_isNJ(m)).length;
+  const tl=allMatches.filter(m=>m.winner&&m.winner!==name&&!_isWO(m)&&!_isNJ(m)).length;
   const winPct=(tw+tl)>0?Math.round(tw/(tw+tl)*100):0;
   const summaryHtml=buildPlayerSummary(name,allMatches,tw,tl,winPct);
   const byYearEtapa={};
@@ -1101,13 +1118,14 @@ function renderPlayerDetail(name){
   sortedYears.forEach(yr=>{
     const etapaMap=byYearEtapa[yr];
     const sortedEtapas=Object.keys(etapaMap).sort((a,b)=>parseInt(b.slice(1))-parseInt(a.slice(1)));
-    const yw=sortedEtapas.flatMap(e=>etapaMap[e]).filter(m=>m.winner===name).length;
-    const yl=sortedEtapas.flatMap(e=>etapaMap[e]).filter(m=>m.winner&&m.winner!==name).length;
+    const _isNJ2=m=>m.score==='NJ';
+    const yw=sortedEtapas.flatMap(e=>etapaMap[e]).filter(m=>m.winner===name&&!_isNJ2(m)).length;
+    const yl=sortedEtapas.flatMap(e=>etapaMap[e]).filter(m=>m.winner&&m.winner!==name&&!_isNJ2(m)).length;
     let etapaSections='';
     sortedEtapas.forEach(ek=>{
       const ms=etapaMap[ek];
-      const ew=ms.filter(m=>m.winner===name).length;
-      const el=ms.filter(m=>m.winner&&m.winner!==name).length;
+      const ew=ms.filter(m=>m.winner===name&&!_isNJ2(m)).length;
+      const el=ms.filter(m=>m.winner&&m.winner!==name&&!_isNJ2(m)).length;
       etapaSections+=`<div style="margin-bottom:1rem">
         <div style="font-size:.68rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--blue-light)">
           <span>Etapa ${ek.slice(1)}</span><span style="font-weight:400;color:var(--muted)">${ew}V – ${el}D</span>
