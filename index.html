@@ -2164,12 +2164,18 @@ function renderEtapa3Partidos() {
     {key:'B',  label:'Categoría B'},
   ];
 
+  var catTabs = '<div style="display:flex;gap:8px;padding:10px 1rem;background:var(--white);border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap">' +
+    cats.map(function(c) {
+      var active = c.key === e3Cat ? 'active-oro' : '';
+      return '<button onclick="e3Cat=\'' + c.key + '\';renderEtapa3Partidos()" class="cup-tab ' + active + '">' + c.label + '</button>';
+    }).join('') +
+  '</div>';
+
   var allGroups = window.E3_GROUPS || E3_GROUPS;
+  var groups = allGroups[e3Cat] || [];
   var totalAll = 0, doneAll = 0;
-  cats.forEach(function(c){
-    (allGroups[c.key]||[]).forEach(function(g){
-      g.matches.forEach(function(m){ totalAll++; if(m.done) doneAll++; });
-    });
+  groups.forEach(function(g){
+    g.matches.forEach(function(m){ totalAll++; if(m.done) doneAll++; });
   });
   var pendAll = totalAll - doneAll;
   var pctAll = totalAll>0 ? Math.round(doneAll/totalAll*100) : 0;
@@ -2184,34 +2190,23 @@ function renderEtapa3Partidos() {
       '<div class="cup-stat"><div class="cs-val">' + pctAll + '%</div><div class="cs-lbl">Avance</div></div>' +
     '</div></div>';
 
-  cats.forEach(function(c) {
-    var groups = allGroups[c.key] || [];
-    var catTotal = 0, catDone = 0;
-    groups.forEach(function(g){ g.matches.forEach(function(m){ catTotal++; if(m.done) catDone++; }); });
-
-    html += '<div class="round-group">';
-    html += '<div class="round-header"><div class="rh-title">' + c.label.toUpperCase() + '</div>' +
-            '<div class="rh-count">' + catDone + '/' + catTotal + ' jugados</div></div>';
-
-    if (!groups.length) {
-      html += '<div class="empty" style="padding:1rem 1.2rem;color:var(--muted);font-size:.85rem;font-style:italic">Sin grupos definidos aún</div>';
-    } else {
-      groups.forEach(function(g) {
-        var played = g.matches.filter(function(m){ return m.done; }).length;
-        html += '<div style="padding:0.6rem 1.2rem 0.3rem;background:#f8f9fb;border-top:1px solid var(--border)">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center">' +
-          '<div style="font-weight:700;font-size:.8rem;color:var(--blue)">Grupo ' + g.group + '</div>' +
-          '<div style="font-size:.7rem;color:var(--muted)">' + played + '/' + g.matches.length + ' jugados</div>' +
-          '</div></div>';
-        g.matches.forEach(function(m) {
-          html += e3GroupMatchCardHtml(m, c.key, g.group);
-        });
+  if (!groups.length) {
+    html += '<div class="empty" style="padding:1.5rem;color:var(--muted);font-size:.85rem;font-style:italic;text-align:center">Sin grupos definidos aún</div>';
+  } else {
+    groups.forEach(function(g) {
+      var played = g.matches.filter(function(m){ return m.done; }).length;
+      html += '<div style="padding:0.6rem 1.2rem 0.3rem;background:#f8f9fb;border-top:1px solid var(--border)">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div style="font-weight:700;font-size:.8rem;color:var(--blue)">Grupo ' + g.group + '</div>' +
+        '<div style="font-size:.7rem;color:var(--muted)">' + played + '/' + g.matches.length + ' jugados</div>' +
+        '</div></div>';
+      g.matches.forEach(function(m) {
+        html += e3GroupMatchCardHtml(m, e3Cat, g.group);
       });
-    }
-    html += '</div>';
-  });
+    });
+  }
 
-  el.innerHTML = html;
+  el.innerHTML = catTabs + html;
 }
 
 function calcE3GroupStandings(group) {
@@ -2284,13 +2279,13 @@ function renderEtapa3Posiciones() {
     filtered.forEach(function(g) {
       var standings = calcE3GroupStandings(g);
 
-      var header = '<div style="display:grid;grid-template-columns:28px minmax(110px,1fr) 36px 50px 56px 44px;gap:0;padding:7px 12px;background:#eef2f7;border-bottom:1px solid var(--border)">' +
-        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);letter-spacing:.5px">#</div>' +
-        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);letter-spacing:.5px">JUGADOR</div>' +
-        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.5px">PJ</div>' +
-        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.5px">V-D</div>' +
-        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.5px">DIF G</div>' +
-        '<div style="font-size:.62rem;font-weight:700;color:var(--blue);text-align:center;letter-spacing:.5px">PTS</div>' +
+      var header = '<div style="display:grid;grid-template-columns:22px minmax(0,1fr) 28px 38px 44px 36px;gap:4px;padding:6px 10px;background:#eef2f7;border-bottom:1px solid var(--border)">' +
+        '<div style="font-size:.58rem;font-weight:700;color:var(--muted);letter-spacing:.3px">#</div>' +
+        '<div style="font-size:.58rem;font-weight:700;color:var(--muted);letter-spacing:.3px">JUGADOR</div>' +
+        '<div style="font-size:.58rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.3px">PJ</div>' +
+        '<div style="font-size:.58rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.3px">V-D</div>' +
+        '<div style="font-size:.58rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.3px">DIF G</div>' +
+        '<div style="font-size:.58rem;font-weight:700;color:var(--blue);text-align:center;letter-spacing:.3px">PTS</div>' +
       '</div>';
 
       var rows = standings.map(function(s, i) {
@@ -2300,13 +2295,13 @@ function renderEtapa3Posiciones() {
         var nameColor = isLeader ? 'var(--text)' : 'var(--text)';
         var diffColor = s.gamesDiff > 0 ? '#2e7d32' : (s.gamesDiff < 0 ? '#c0392b' : 'var(--muted)');
         var diffTxt = (s.gamesDiff > 0 ? '+' : '') + s.gamesDiff;
-        return '<div style="display:grid;grid-template-columns:28px minmax(110px,1fr) 36px 50px 56px 44px;gap:0;align-items:center;padding:8px 12px;background:' + bg + ';border-bottom:1px solid var(--border)">' +
-          '<div style="font-size:.78rem;font-weight:600;color:var(--muted)">' + (i+1) + '</div>' +
-          '<div style="font-size:.86rem;font-weight:' + nameWeight + ';color:' + nameColor + ';cursor:pointer" onclick="openPlayer(\'' + s.name.replace(/'/g,"\\'") + '\')">' + s.name + '</div>' +
-          '<div style="font-size:.8rem;text-align:center;color:var(--muted)">' + s.pj + '</div>' +
-          '<div style="font-size:.8rem;text-align:center;color:var(--muted)">' + s.w + '-' + s.l + '</div>' +
-          '<div style="font-size:.82rem;font-weight:600;text-align:center;color:' + diffColor + '">' + diffTxt + '</div>' +
-          '<div style="font-size:.95rem;font-weight:700;text-align:center;color:var(--blue)">' + s.pts + '</div>' +
+        return '<div style="display:grid;grid-template-columns:22px minmax(0,1fr) 28px 38px 44px 36px;gap:4px;align-items:center;padding:7px 10px;background:' + bg + ';border-bottom:1px solid var(--border)">' +
+          '<div style="font-size:.7rem;font-weight:600;color:var(--muted)">' + (i+1) + '</div>' +
+          '<div style="font-size:.74rem;font-weight:' + nameWeight + ';color:' + nameColor + ';cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="openPlayer(\'' + s.name.replace(/'/g,"\\'") + '\')">' + s.name + '</div>' +
+          '<div style="font-size:.7rem;text-align:center;color:var(--muted)">' + s.pj + '</div>' +
+          '<div style="font-size:.7rem;text-align:center;color:var(--muted)">' + s.w + '-' + s.l + '</div>' +
+          '<div style="font-size:.72rem;font-weight:600;text-align:center;color:' + diffColor + '">' + diffTxt + '</div>' +
+          '<div style="font-size:.82rem;font-weight:700;text-align:center;color:var(--blue)">' + s.pts + '</div>' +
         '</div>';
       }).join('');
 
