@@ -870,6 +870,83 @@ function renderHistory(){
 }
 
 // ── PLAYERS ───────────────────────────────────────────────────────────────────
+function getAllPlayerMatches(name) {
+  const d = PLAYER_DATA[name];
+  const allMatches = [];
+  HIST_MATCHES.forEach(m => { if (m.p1 !== name && m.p2 !== name) return; allMatches.push({...m}); });
+  if (d) {
+    (d.group_matches || []).forEach(m => {
+      allMatches.push({year:2026, etapa:1, fase:'Fase de Grupos', instancia:'Fase de Grupos',
+        p1:name, p2:m.opp, score:m.score, winner:m.won?name:m.opp, retired:m.retired});
+    });
+  }
+  const live2026 = getLivePlayoffMatches(name);
+  const hKeys = new Set((d?.playoff_matches || []).map(m => [name,m.opp,m.round,m.cup].join('|')));
+  const allPO26 = [...(d?.playoff_matches||[]), ...live2026.filter(m=>!hKeys.has([name,m.opp,m.round,m.cup].join('|')))];
+  allPO26.forEach(m => {
+    const fase = m.cup.replace('Cat A - ','Cat. A – ').replace('Cat B - ','Cat. B – ');
+    allMatches.push({year:2026, etapa:1, fase, instancia:m.round, p1:name, p2:m.opp, score:m.score, winner:m.won?name:m.opp});
+  });
+  // Etapa 2 group matches
+  if (window.E2_STATE) {
+    ['A','B'].forEach(cat => {
+      (window.E2_STATE[cat] || []).forEach(g => {
+        g.matches.forEach(m => {
+          if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
+          allMatches.push({year:2026, etapa:2, fase:'Fase de Grupos E2',
+            instancia:'Grupo ' + g.group + ' · Cat. ' + cat, p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+        });
+      });
+    });
+  }
+  // Etapa 2 cup matches
+  const cups2 = window.E2_CUPS || E2_CUPS;
+  const cupLabels2 = {
+    'e2_catA_oro':'Copa Oro Cat. A', 'e2_catA_plata':'Copa Plata Cat. A',
+    'e2_catB_oro':'Copa Oro Cat. B', 'e2_catB_plata':'Copa Plata Cat. B'
+  };
+  const roundLabels2 = {
+    '32avos':'32avos de Final', '16vos':'16vos de Final',
+    '8vos':'Octavos de Final', '4tos':'Cuartos de Final',
+    'Semis':'Semifinales', 'Final':'Final'
+  };
+  if (cups2) {
+    Object.entries(cups2).forEach(([key, cup]) => {
+      cup.matches.forEach(m => {
+        if (!m.done || !m.score || m.score === 'BYE') return;
+        if (m.p1 !== name && m.p2 !== name) return;
+        if (m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
+        allMatches.push({year:2026, etapa:2, fase:cupLabels2[key] || 'Copa E2',
+          instancia:roundLabels2[m.round] || m.round, p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+      });
+    });
+  }
+  // Etapa 3 group matches
+  const e3groups = window.E3_GROUPS || (typeof E3_GROUPS !== 'undefined' ? E3_GROUPS : null);
+  if (e3groups) {
+    Object.entries(e3groups).forEach(([cat, groups]) => {
+      (groups || []).forEach(g => {
+        g.matches.forEach(m => {
+          if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
+          allMatches.push({year:2026, etapa:3, fase:'Fase de Grupos E3',
+            instancia:'Grupo ' + g.group + ' · Cat. ' + cat, p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+        });
+      });
+    });
+  }
+  // Etapa 3 Qualy
+  const e3qualy = window.E3_QUALY_A || (typeof E3_QUALY_A !== 'undefined' ? E3_QUALY_A : null);
+  if (e3qualy && e3qualy.round1) {
+    e3qualy.round1.forEach(m => {
+      if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
+      allMatches.push({year:2026, etapa:3, fase:'Qualy Cat. A',
+        instancia:'1ra Ronda', p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+    });
+  }
+  allMatches.sort((a,b) => b.year-a.year || b.etapa-a.etapa);
+  return allMatches;
+}
+
 function renderPlayers(){
   if(selectedPlayer){renderPlayerDetail(selectedPlayer);return;}
   const allNames=new Set(PLAYERS_LIST);
@@ -878,17 +955,8 @@ function renderPlayers(){
   const search=playerSearch.toLowerCase();
   const filtered=allSorted.filter(n=>matchesSearch(n,search));
   const listHtml=filtered.map(name=>{
-    const d=PLAYER_DATA[name];
-    // Build full match list same way as profile (so counts match)
-    const _allM=[];
-    HIST_MATCHES.forEach(m=>{if(m.p1===name||m.p2===name)_allM.push(m);});
-    if(d){
-      (d.group_matches||[]).forEach(m=>{_allM.push({winner:m.won?name:m.opp,score:m.score});});
-      const _live=getLivePlayoffMatches(name);
-      const _hKeys=new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
-      [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{_allM.push({winner:m.won?name:m.opp});});
-    }
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name)||m.score==='NJ')return;_allM.push({winner:m.winner,score:m.score});})));}
+    // Use the same shared logic as the profile detail so counts always match
+    const _allM=getAllPlayerMatches(name).filter(m=>m.score!=='NJ');
     const _noWO=m=>m.score!=='WO'&&m.score!=='WO 1'&&m.score!=='WO 2';
     const tw=_allM.filter(m=>m.winner===name&&_noWO(m)).length;
     const tl=_allM.filter(m=>m.winner&&m.winner!==name&&_noWO(m)).length;
@@ -1023,61 +1091,7 @@ function buildPlayerSummary(name,allMatches,tw,tl,winPct){
 
 function renderPlayerDetail(name){
   const d=PLAYER_DATA[name];
-  const allMatches=[];
-  HIST_MATCHES.forEach(m=>{if(m.p1!==name&&m.p2!==name)return;allMatches.push({...m});});
-  if(d){
-    (d.group_matches||[]).forEach(m=>{allMatches.push({year:2026,etapa:1,fase:'Fase de Grupos',instancia:'Fase de Grupos',p1:name,p2:m.opp,score:m.score,winner:m.won?name:m.opp,retired:m.retired});});
-  }
-  const live2026=getLivePlayoffMatches(name);
-  const hKeys=new Set((d?.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
-  const allPO26=[...(d?.playoff_matches||[]),...live2026.filter(m=>!hKeys.has([name,m.opp,m.round,m.cup].join('|')))];
-  allPO26.forEach(m=>{const fase=m.cup.replace('Cat A - ','Cat. A – ').replace('Cat B - ','Cat. B – ');allMatches.push({year:2026,etapa:1,fase,instancia:m.round,p1:name,p2:m.opp,score:m.score,winner:m.won?name:m.opp});});
-  // Etapa 2 matches from live state
-  if (window.E2_STATE) {
-    ['A','B'].forEach(cat => {
-      (window.E2_STATE[cat]||[]).forEach(g => {
-        g.matches.forEach(m => {
-          if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
-          allMatches.push({
-            year: 2026, etapa: 2,
-            fase: 'Fase de Grupos E2',
-            instancia: 'Grupo ' + g.group + ' · Cat. ' + cat,
-            p1: m.p1, p2: m.p2,
-            score: m.score, winner: m.winner
-          });
-        });
-      });
-    });
-  }
-  // E2 cup matches
-  const _cups2 = window.E2_CUPS || E2_CUPS;
-  const _cupLabels = {
-    'e2_catA_oro':'Copa Oro Cat. A','e2_catA_plata':'Copa Plata Cat. A',
-    'e2_catB_oro':'Copa Oro Cat. B','e2_catB_plata':'Copa Plata Cat. B'
-  };
-  const _roundLabels = {
-    '32avos':'32avos de Final','16vos':'16vos de Final',
-    '8vos':'Octavos de Final','4tos':'Cuartos de Final',
-    'Semis':'Semifinales','Final':'Final'
-  };
-  if (_cups2) {
-    Object.entries(_cups2).forEach(([key, cup]) => {
-      cup.matches.forEach(m => {
-        if (!m.done || !m.score || m.score === 'BYE') return;
-        if (m.p1 !== name && m.p2 !== name) return;
-        if (m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
-        allMatches.push({
-          year: 2026, etapa: 2,
-          fase: _cupLabels[key] || 'Copa E2',
-          instancia: _roundLabels[m.round] || m.round,
-          p1: m.p1, p2: m.p2,
-          score: m.score, winner: m.winner
-        });
-      });
-    });
-  }
-  // Future etapas (3, 4) can be added here similarly
-  allMatches.sort((a,b)=>b.year-a.year||b.etapa-a.etapa);
+  const allMatches = getAllPlayerMatches(name);
   const _isWO=m=>m.score==='WO'||m.score==='WO 1'||m.score==='WO 2';
   const tw=allMatches.filter(m=>m.winner===name&&!_isWO(m)).length;
   const tl=allMatches.filter(m=>m.winner&&m.winner!==name&&!_isWO(m)).length;
