@@ -400,10 +400,11 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     <button class="bn-item"        id="e2bn-back"       onclick="goHome()">               <span class="bn-icon">🏠</span><span class="bn-label">Inicio</span></button>
   </nav>
   <nav class="bottom-nav" id="nav-e3" style="display:none">
-    <button class="bn-item active" id="e3bn-grupos"   onclick="e3NavView('grupos')">   <span class="bn-icon">👥</span><span class="bn-label">Grupos</span></button>
-    <button class="bn-item"        id="e3bn-partidos" onclick="e3NavView('partidos')"><span class="bn-icon">🎾</span><span class="bn-label">Partidos</span></button>
-    <button class="bn-item"        id="e3bn-qualy"    onclick="e3NavView('qualy')">    <span class="bn-icon">🎯</span><span class="bn-label">Qualy</span></button>
-    <button class="bn-item"        id="e3bn-back"     onclick="goHome()">              <span class="bn-icon">🏠</span><span class="bn-label">Inicio</span></button>
+    <button class="bn-item active" id="e3bn-grupos"     onclick="e3NavView('grupos')">     <span class="bn-icon">👥</span><span class="bn-label">Grupos</span></button>
+    <button class="bn-item"        id="e3bn-partidos"   onclick="e3NavView('partidos')">   <span class="bn-icon">🎾</span><span class="bn-label">Partidos</span></button>
+    <button class="bn-item"        id="e3bn-posiciones" onclick="e3NavView('posiciones')"> <span class="bn-icon">📋</span><span class="bn-label">Posiciones</span></button>
+    <button class="bn-item"        id="e3bn-qualy"      onclick="e3NavView('qualy')">      <span class="bn-icon">🎯</span><span class="bn-label">Qualy</span></button>
+    <button class="bn-item"        id="e3bn-back"       onclick="goHome()">                <span class="bn-icon">🏠</span><span class="bn-label">Inicio</span></button>
   </nav>
 </div>
 <div class="toast" id="toast"></div>
@@ -2009,6 +2010,7 @@ function e3NavView(tab) {
   if (btn) btn.classList.add('active');
   if (tab === 'qualy') renderEtapa3Qualy();
   else if (tab === 'partidos') renderEtapa3Partidos();
+  else if (tab === 'posiciones') renderEtapa3Posiciones();
   else renderEtapa3Grupos();
 }
 
@@ -2016,42 +2018,54 @@ function renderEtapa3Grupos() {
   var el = document.getElementById('main');
   if (!el) return;
   var cats = [
-    {key:'A1', label:'Cat. A1'},
-    {key:'B',  label:'Cat. B'},
+    {key:'A1', label:'Categoría A1'},
+    {key:'A2', label:'Categoría A2'},
+    {key:'B',  label:'Categoría B'},
   ];
-  var catTabs = cats.map(function(c) {
-    var active = c.key === e3Cat ? ' active' : '';
-    return '<button class="cup-tab' + active + '" onclick="e3Cat=\'' + c.key + '\';e3GrpFilter=\'all\';renderEtapa3Grupos()">' + c.label + '</button>';
-  }).join('');
+  var catTabs = '<div style="display:flex;gap:8px;padding:10px 1rem;background:var(--white);border-bottom:1px solid var(--border)">' +
+    cats.map(function(c) {
+      var active = c.key === e3Cat ? 'active-oro' : '';
+      return '<button onclick="e3Cat=\'' + c.key + '\';e3GrpFilter=\'all\';renderEtapa3Grupos()" class="cup-tab ' + active + '">' + c.label + '</button>';
+    }).join('') +
+  '</div>';
 
   var groups = (window.E3_GROUPS || E3_GROUPS)[e3Cat] || [];
-  var grpTabs = '<button class="rtab ' + (e3GrpFilter==='all'?'active':'') + '" onclick="e3GrpFilter=\'all\';renderEtapa3Grupos()">Todos</button>';
-  groups.forEach(function(g) {
-    var active = e3GrpFilter === g.group ? 'active' : '';
-    grpTabs += '<button class="rtab ' + active + '" onclick="e3GrpFilter=' + g.group + ';renderEtapa3Grupos()">Grupo ' + g.group + '</button>';
-  });
+
+  var grpPills = ['all'].concat(groups.map(function(g){ return g.group; })).map(function(g) {
+    var active = e3GrpFilter === g;
+    var label = g === 'all' ? 'Todos' : 'G' + g;
+    var gv = g === 'all' ? "'all'" : g;
+    return '<button onclick="e3GrpFilter=' + gv + ';renderEtapa3Grupos()" style="padding:4px 12px;border-radius:16px;border:1px solid ' + (active?'var(--blue)':'var(--border)') + ';background:' + (active?'var(--blue)':'transparent') + ';color:' + (active?'white':'var(--muted)') + ';font-size:.7rem;font-weight:' + (active?700:400) + ';cursor:pointer;white-space:nowrap;font-family:\'Inter\',sans-serif">' + label + '</button>';
+  }).join('');
 
   var filtered = e3GrpFilter === 'all' ? groups : groups.filter(function(g){ return g.group === e3GrpFilter; });
 
   var html = '';
-  filtered.forEach(function(g) {
-    var played = g.matches.filter(function(m){ return m.done; }).length;
-    html += '<div class="round-group">';
-    html += '<div class="round-header"><div class="rh-title">Grupo ' + g.group + '</div>' +
-            '<div class="rh-count">' + played + '/' + g.matches.length + ' jugados</div></div>';
-    html += '<div style="padding:0 1rem 0.5rem;font-size:.78rem;color:var(--muted)">' +
-            g.players.join(' · ') + '</div>';
-    g.matches.forEach(function(m) {
-      html += e3GroupMatchCardHtml(m, e3Cat, g.group);
+  if (!groups.length) {
+    html = '<div class="empty" style="padding:1.5rem;color:var(--muted);font-size:.85rem;font-style:italic;text-align:center">Sin grupos definidos aún</div>';
+  } else {
+    filtered.forEach(function(g) {
+      var done = g.matches.filter(function(m){ return m.done; }).length;
+      var rows = g.players.map(function(p, i) {
+        var bg = i % 2 === 0 ? '#f8f9fb' : 'white';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:7px 12px;background:' + bg + ';border-bottom:1px solid var(--border)">' +
+          '<div style="width:22px;height:22px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:.65rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + (i+1) + '</div>' +
+          '<div style="font-size:.86rem;cursor:pointer" onclick="openPlayer(\'' + p.replace(/'/g,"\\'") + '\')">' + p + '</div>' +
+        '</div>';
+      }).join('');
+      html += '<div class="round-group">' +
+        '<div class="round-header"><div class="rh-title">GRUPO ' + g.group + '</div>' +
+        '<div class="rh-count">' + done + '/' + g.matches.length + ' JUGADOS</div></div>' +
+        '<div style="background:var(--white);border-radius:8px;overflow:hidden;border:1px solid var(--border);margin:0.5rem 1rem 1rem">' + rows + '</div>' +
+      '</div>';
     });
-    html += '</div>';
-  });
+  }
 
-  el.innerHTML =
-    '<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 1rem;border-bottom:1px solid var(--border);background:var(--white)">' + catTabs + '</div>' +
-    '<div class="round-nav">' + grpTabs + '</div>' +
-    '<div class="draw-content">' + (html || '<div class="empty">Sin grupos</div>') + '</div>';
+  el.innerHTML = catTabs +
+    '<div class="round-nav">' + grpPills + '</div>' +
+    '<div class="draw-content">' + html + '</div>';
 }
+
 
 function e3GroupMatchCardHtml(m, cat, grpNum) {
   var p = m.done ? parseScore(m.score) : null;
@@ -2198,6 +2212,114 @@ function renderEtapa3Partidos() {
   });
 
   el.innerHTML = html;
+}
+
+function calcE3GroupStandings(group) {
+  // Returns array of {name, pj, w, l, gamesWon, gamesLost, gamesDiff, pts}
+  var stats = {};
+  group.players.forEach(function(p) {
+    stats[p] = {name:p, pj:0, w:0, l:0, gamesWon:0, gamesLost:0};
+  });
+  group.matches.forEach(function(m) {
+    if (!m.done) return;
+    var isWo = isWO(m.score);
+    var p = isWo ? null : parseScore(m.score);
+    var w = isWo ? (m.winner===m.p1?1:2) : (p ? p.winner : null);
+    if (!w) return;
+
+    stats[m.p1].pj++; stats[m.p2].pj++;
+    if (w === 1) { stats[m.p1].w++; stats[m.p2].l++; }
+    else         { stats[m.p2].w++; stats[m.p1].l++; }
+
+    if (!isWo && p) {
+      p.sets.forEach(function(s) {
+        stats[m.p1].gamesWon  += s.a; stats[m.p1].gamesLost += s.b;
+        stats[m.p2].gamesWon  += s.b; stats[m.p2].gamesLost += s.a;
+      });
+    }
+  });
+  var rows = Object.values(stats).map(function(s) {
+    s.gamesDiff = s.gamesWon - s.gamesLost;
+    s.pts = s.w; // 1 point per win (round robin)
+    return s;
+  });
+  rows.sort(function(a,b) {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.gamesDiff !== a.gamesDiff) return b.gamesDiff - a.gamesDiff;
+    return b.gamesWon - a.gamesWon;
+  });
+  return rows;
+}
+
+function renderEtapa3Posiciones() {
+  var el = document.getElementById('main');
+  if (!el) return;
+  var cats = [
+    {key:'A1', label:'Categoría A1'},
+    {key:'A2', label:'Categoría A2'},
+    {key:'B',  label:'Categoría B'},
+  ];
+  var catTabs = '<div style="display:flex;gap:8px;padding:10px 1rem;background:var(--white);border-bottom:1px solid var(--border)">' +
+    cats.map(function(c) {
+      var active = c.key === e3Cat ? 'active-oro' : '';
+      return '<button onclick="e3Cat=\'' + c.key + '\';e3GrpFilter=\'all\';renderEtapa3Posiciones()" class="cup-tab ' + active + '">' + c.label + '</button>';
+    }).join('') +
+  '</div>';
+
+  var groups = (window.E3_GROUPS || E3_GROUPS)[e3Cat] || [];
+
+  var grpPills = ['all'].concat(groups.map(function(g){ return g.group; })).map(function(g) {
+    var active = e3GrpFilter === g;
+    var label = g === 'all' ? 'Todos' : 'G' + g;
+    var gv = g === 'all' ? "'all'" : g;
+    return '<button onclick="e3GrpFilter=' + gv + ';renderEtapa3Posiciones()" style="padding:4px 12px;border-radius:16px;border:1px solid ' + (active?'var(--blue)':'var(--border)') + ';background:' + (active?'var(--blue)':'transparent') + ';color:' + (active?'white':'var(--muted)') + ';font-size:.7rem;font-weight:' + (active?700:400) + ';cursor:pointer;white-space:nowrap;font-family:\'Inter\',sans-serif">' + label + '</button>';
+  }).join('');
+
+  var filtered = e3GrpFilter === 'all' ? groups : groups.filter(function(g){ return g.group === e3GrpFilter; });
+
+  var html = '';
+  if (!groups.length) {
+    html = '<div class="empty" style="padding:1.5rem;color:var(--muted);font-size:.85rem;font-style:italic;text-align:center">Sin grupos definidos aún</div>';
+  } else {
+    filtered.forEach(function(g) {
+      var standings = calcE3GroupStandings(g);
+
+      var header = '<div style="display:grid;grid-template-columns:28px minmax(110px,1fr) 36px 50px 56px 44px;gap:0;padding:7px 12px;background:#eef2f7;border-bottom:1px solid var(--border)">' +
+        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);letter-spacing:.5px">#</div>' +
+        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);letter-spacing:.5px">JUGADOR</div>' +
+        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.5px">PJ</div>' +
+        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.5px">V-D</div>' +
+        '<div style="font-size:.62rem;font-weight:700;color:var(--muted);text-align:center;letter-spacing:.5px">DIF G</div>' +
+        '<div style="font-size:.62rem;font-weight:700;color:var(--blue);text-align:center;letter-spacing:.5px">PTS</div>' +
+      '</div>';
+
+      var rows = standings.map(function(s, i) {
+        var isLeader = i === 0;
+        var bg = isLeader ? '#eaf2ff' : (i % 2 === 0 ? '#f8f9fb' : 'white');
+        var nameWeight = isLeader ? '700' : '400';
+        var nameColor = isLeader ? 'var(--text)' : 'var(--text)';
+        var diffColor = s.gamesDiff > 0 ? '#2e7d32' : (s.gamesDiff < 0 ? '#c0392b' : 'var(--muted)');
+        var diffTxt = (s.gamesDiff > 0 ? '+' : '') + s.gamesDiff;
+        return '<div style="display:grid;grid-template-columns:28px minmax(110px,1fr) 36px 50px 56px 44px;gap:0;align-items:center;padding:8px 12px;background:' + bg + ';border-bottom:1px solid var(--border)">' +
+          '<div style="font-size:.78rem;font-weight:600;color:var(--muted)">' + (i+1) + '</div>' +
+          '<div style="font-size:.86rem;font-weight:' + nameWeight + ';color:' + nameColor + ';cursor:pointer" onclick="openPlayer(\'' + s.name.replace(/'/g,"\\'") + '\')">' + s.name + '</div>' +
+          '<div style="font-size:.8rem;text-align:center;color:var(--muted)">' + s.pj + '</div>' +
+          '<div style="font-size:.8rem;text-align:center;color:var(--muted)">' + s.w + '-' + s.l + '</div>' +
+          '<div style="font-size:.82rem;font-weight:600;text-align:center;color:' + diffColor + '">' + diffTxt + '</div>' +
+          '<div style="font-size:.95rem;font-weight:700;text-align:center;color:var(--blue)">' + s.pts + '</div>' +
+        '</div>';
+      }).join('');
+
+      html += '<div class="round-group">' +
+        '<div class="round-header"><div class="rh-title">GRUPO ' + g.group + '</div></div>' +
+        '<div style="background:var(--white);border-radius:8px;overflow:hidden;border:1px solid var(--border);margin:0.5rem 1rem 1rem">' + header + rows + '</div>' +
+      '</div>';
+    });
+  }
+
+  el.innerHTML = catTabs +
+    '<div class="round-nav">' + grpPills + '</div>' +
+    '<div class="draw-content">' + html + '</div>';
 }
 
 function renderEtapa3Qualy() {
