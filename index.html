@@ -985,18 +985,10 @@ function renderPlayersList() {
   const search = playerSearch.toLowerCase();
   const filtered = allSorted.filter(n => matchesSearch(n, search));
   const listHtml = filtered.map(name => {
-    const d = PLAYER_DATA[name];
-    const _allM = [];
-    HIST_MATCHES.forEach(m => { if(m.p1===name||m.p2===name) _allM.push(m); });
-    if(d){
-      (d.group_matches||[]).forEach(m => { _allM.push({winner:m.won?name:m.opp}); });
-      const _live = getLivePlayoffMatches(name);
-      const _hKeys = new Set((d.playoff_matches||[]).map(m=>[name,m.opp,m.round,m.cup].join('|')));
-      [...(d.playoff_matches||[]),..._live.filter(m=>!_hKeys.has([name,m.opp,m.round,m.cup].join('|')))].forEach(m=>{ _allM.push({winner:m.won?name:m.opp,score:m.score}); });
-    }
-    if(window.E2_STATE){['A','B'].forEach(cat=>(window.E2_STATE[cat]||[]).forEach(g=>g.matches.forEach(m=>{if(!m.done||(m.p1!==name&&m.p2!==name)||m.score==='NJ')return;_allM.push({winner:m.winner,score:m.score});})));}
-    const tw = _allM.filter(m=>m.winner===name).length;
-    const tl = _allM.filter(m=>m.winner&&m.winner!==name).length;
+    const _allM = getAllPlayerMatches(name).filter(m=>m.score!=='NJ');
+    const _noWO = m=>m.score!=='WO'&&m.score!=='WO 1'&&m.score!=='WO 2';
+    const tw = _allM.filter(m=>m.winner===name&&_noWO(m)).length;
+    const tl = _allM.filter(m=>m.winner&&m.winner!==name&&_noWO(m)).length;
     return `<div class="player-row" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}<span class="player-stat">${tw}V – ${tl}D</span></div>`;
   }).join('');
   container.innerHTML = `<div style="font-size:.7rem;color:var(--muted);margin-bottom:.8rem">${filtered.length} jugadores</div>${listHtml}</div>`;
