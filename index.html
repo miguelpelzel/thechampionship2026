@@ -309,6 +309,44 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
             }
             return;
           }
+          // ── E3 group phase matches ───────────────────────────────────────
+          const e3GroupMatch = d.cupKey && d.cupKey.match(/^e3_(A1|A2|B)_(\d+)$/);
+          if (e3GroupMatch) {
+            const e3cat = e3GroupMatch[1], e3grp = parseInt(e3GroupMatch[2]);
+            const e3groups = window.E3_GROUPS;
+            const g = e3groups && e3groups[e3cat] && e3groups[e3cat].find(x=>x.group===e3grp);
+            if (g) {
+              const m = g.matches.find(x=>x.id===d.matchId);
+              if (m) {
+                if (d.score==='__deleted__') {
+                  if (m.done) { m.score=''; m.done=false; m.winner=null; changed=true; }
+                } else if (d.score && d.score.trim()) {
+                  if (!m.done || m.score!==d.score || m.winner!==d.winner) {
+                    m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
+                  }
+                }
+              }
+            }
+            return;
+          }
+          // ── E3 Qualy matches ─────────────────────────────────────────────
+          const e3QualyMatch = d.cupKey && d.cupKey.match(/^e3_qualyA_(round1|round2)$/);
+          if (e3QualyMatch) {
+            const rKey = e3QualyMatch[1];
+            const qualy = window.E3_QUALY_A;
+            const arr = qualy && qualy[rKey];
+            const m = arr && arr.find(x=>x.id===d.matchId);
+            if (m) {
+              if (d.score==='__deleted__') {
+                if (m.done) { m.score=''; m.done=false; m.winner=null; changed=true; }
+              } else if (d.score && d.score.trim()) {
+                if (!m.done || m.score!==d.score || m.winner!==d.winner) {
+                  m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
+                }
+              }
+            }
+            return;
+          }
         });
         // Re-render only what's needed, never force navigation
         // After processing all Firebase docs, rebuild propagation from scratch
@@ -2014,7 +2052,7 @@ window.E2_CUPS_ORIG = JSON.parse(JSON.stringify(E2_CUPS));
 // ── ETAPA 3 DATA ────────────────────────────────────────────────────────────
 const E3_GROUPS={"A1":[{"group":1,"players":["Facundo Rivera","Guillermo Hughes","Alejo Matos","Andrés Della Cella"],"matches":[{"id":"m1","p1":"Facundo Rivera","p2":"Guillermo Hughes","score":"","done":false,"winner":null},{"id":"m2","p1":"Facundo Rivera","p2":"Alejo Matos","score":"","done":false,"winner":null},{"id":"m3","p1":"Facundo Rivera","p2":"Andrés Della Cella","score":"","done":false,"winner":null},{"id":"m4","p1":"Guillermo Hughes","p2":"Alejo Matos","score":"","done":false,"winner":null},{"id":"m5","p1":"Guillermo Hughes","p2":"Andrés Della Cella","score":"","done":false,"winner":null},{"id":"m6","p1":"Alejo Matos","p2":"Andrés Della Cella","score":"","done":false,"winner":null}]},{"group":2,"players":["Juan Martín Bauzá","Mateo Sallés","Luis Bordaberry","Bernardo Mangarelli"],"matches":[{"id":"m1","p1":"Juan Martín Bauzá","p2":"Mateo Sallés","score":"","done":false,"winner":null},{"id":"m2","p1":"Juan Martín Bauzá","p2":"Luis Bordaberry","score":"","done":false,"winner":null},{"id":"m3","p1":"Juan Martín Bauzá","p2":"Bernardo Mangarelli","score":"","done":false,"winner":null},{"id":"m4","p1":"Mateo Sallés","p2":"Luis Bordaberry","score":"","done":false,"winner":null},{"id":"m5","p1":"Mateo Sallés","p2":"Bernardo Mangarelli","score":"","done":false,"winner":null},{"id":"m6","p1":"Luis Bordaberry","p2":"Bernardo Mangarelli","score":"","done":false,"winner":null}]},{"group":3,"players":["Uriel Rosenfeld","Gustavo Voituret","Martín Matos","Ignacio Medoc"],"matches":[{"id":"m1","p1":"Uriel Rosenfeld","p2":"Gustavo Voituret","score":"","done":false,"winner":null},{"id":"m2","p1":"Uriel Rosenfeld","p2":"Martín Matos","score":"","done":false,"winner":null},{"id":"m3","p1":"Uriel Rosenfeld","p2":"Ignacio Medoc","score":"","done":false,"winner":null},{"id":"m4","p1":"Gustavo Voituret","p2":"Martín Matos","score":"","done":false,"winner":null},{"id":"m5","p1":"Gustavo Voituret","p2":"Ignacio Medoc","score":"","done":false,"winner":null},{"id":"m6","p1":"Martín Matos","p2":"Ignacio Medoc","score":"","done":false,"winner":null}]},{"group":4,"players":["Agustín Novegil","Santiago Carbajal","Andrés Duffour","Nicolás Rubio"],"matches":[{"id":"m1","p1":"Agustín Novegil","p2":"Santiago Carbajal","score":"","done":false,"winner":null},{"id":"m2","p1":"Agustín Novegil","p2":"Andrés Duffour","score":"","done":false,"winner":null},{"id":"m3","p1":"Agustín Novegil","p2":"Nicolás Rubio","score":"","done":false,"winner":null},{"id":"m4","p1":"Santiago Carbajal","p2":"Andrés Duffour","score":"","done":false,"winner":null},{"id":"m5","p1":"Santiago Carbajal","p2":"Nicolás Rubio","score":"","done":false,"winner":null},{"id":"m6","p1":"Andrés Duffour","p2":"Nicolás Rubio","score":"","done":false,"winner":null}]},{"group":5,"players":["Gonzalo Parada","Francisco Rubio","Santiago Bazzurro"],"matches":[{"id":"m1","p1":"Gonzalo Parada","p2":"Francisco Rubio","score":"","done":false,"winner":null},{"id":"m2","p1":"Gonzalo Parada","p2":"Santiago Bazzurro","score":"","done":false,"winner":null},{"id":"m3","p1":"Francisco Rubio","p2":"Santiago Bazzurro","score":"","done":false,"winner":null}]},{"group":6,"players":["Diego Albanell","Alejandro Deal","Juan Miguel Álvarez"],"matches":[{"id":"m1","p1":"Diego Albanell","p2":"Alejandro Deal","score":"","done":false,"winner":null},{"id":"m2","p1":"Diego Albanell","p2":"Juan Miguel Álvarez","score":"","done":false,"winner":null},{"id":"m3","p1":"Alejandro Deal","p2":"Juan Miguel Álvarez","score":"","done":false,"winner":null}]},{"group":7,"players":["Felipe Goyenola","Maximiliano Cambón","Miguel Pelzel"],"matches":[{"id":"m1","p1":"Felipe Goyenola","p2":"Maximiliano Cambón","score":"","done":false,"winner":null},{"id":"m2","p1":"Felipe Goyenola","p2":"Miguel Pelzel","score":"","done":false,"winner":null},{"id":"m3","p1":"Maximiliano Cambón","p2":"Miguel Pelzel","score":"","done":false,"winner":null}]},{"group":8,"players":["Marcelo Serra","Luis Ignacio Gomensoro","Martín Slinger"],"matches":[{"id":"m1","p1":"Marcelo Serra","p2":"Luis Ignacio Gomensoro","score":"","done":false,"winner":null},{"id":"m2","p1":"Marcelo Serra","p2":"Martín Slinger","score":"","done":false,"winner":null},{"id":"m3","p1":"Luis Ignacio Gomensoro","p2":"Martín Slinger","score":"","done":false,"winner":null}]},{"group":9,"players":["Francisco Natteri","Alvaro Kaminietzky","Román Navarro"],"matches":[{"id":"m1","p1":"Francisco Natteri","p2":"Alvaro Kaminietzky","score":"","done":false,"winner":null},{"id":"m2","p1":"Francisco Natteri","p2":"Román Navarro","score":"","done":false,"winner":null},{"id":"m3","p1":"Alvaro Kaminietzky","p2":"Román Navarro","score":"","done":false,"winner":null}]},{"group":10,"players":["Horacio Roig","Joaquín Arretche","Juan Bartesaghi"],"matches":[{"id":"m1","p1":"Horacio Roig","p2":"Joaquín Arretche","score":"","done":false,"winner":null},{"id":"m2","p1":"Horacio Roig","p2":"Juan Bartesaghi","score":"","done":false,"winner":null},{"id":"m3","p1":"Joaquín Arretche","p2":"Juan Bartesaghi","score":"","done":false,"winner":null}]},{"group":11,"players":["Sebastián Pena","Gadiel Temkin","Alejandro Young"],"matches":[{"id":"m1","p1":"Sebastián Pena","p2":"Gadiel Temkin","score":"","done":false,"winner":null},{"id":"m2","p1":"Sebastián Pena","p2":"Alejandro Young","score":"","done":false,"winner":null},{"id":"m3","p1":"Gadiel Temkin","p2":"Alejandro Young","score":"","done":false,"winner":null}]},{"group":12,"players":["Rafael Gomensoro","Ignacio Erausquin","Marcelo Lasowski"],"matches":[{"id":"m1","p1":"Rafael Gomensoro","p2":"Ignacio Erausquin","score":"","done":false,"winner":null},{"id":"m2","p1":"Rafael Gomensoro","p2":"Marcelo Lasowski","score":"","done":false,"winner":null},{"id":"m3","p1":"Ignacio Erausquin","p2":"Marcelo Lasowski","score":"","done":false,"winner":null}]}],"B":[{"group":1,"players":["Fernando Quiñones","Agustin Castelli","Marcos Ingold","Ignacio Ferrés"],"matches":[{"id":"m1","p1":"Fernando Quiñones","p2":"Agustin Castelli","score":"","done":false,"winner":null},{"id":"m2","p1":"Fernando Quiñones","p2":"Marcos Ingold","score":"","done":false,"winner":null},{"id":"m3","p1":"Fernando Quiñones","p2":"Ignacio Ferrés","score":"","done":false,"winner":null},{"id":"m4","p1":"Agustin Castelli","p2":"Marcos Ingold","score":"","done":false,"winner":null},{"id":"m5","p1":"Agustin Castelli","p2":"Ignacio Ferrés","score":"","done":false,"winner":null},{"id":"m6","p1":"Marcos Ingold","p2":"Ignacio Ferrés","score":"","done":false,"winner":null}]},{"group":2,"players":["Manuel Mendive","Ignacio Massat","Nicolás Sáez","Santiago Soler"],"matches":[{"id":"m1","p1":"Manuel Mendive","p2":"Ignacio Massat","score":"","done":false,"winner":null},{"id":"m2","p1":"Manuel Mendive","p2":"Nicolás Sáez","score":"","done":false,"winner":null},{"id":"m3","p1":"Manuel Mendive","p2":"Santiago Soler","score":"","done":false,"winner":null},{"id":"m4","p1":"Ignacio Massat","p2":"Nicolás Sáez","score":"","done":false,"winner":null},{"id":"m5","p1":"Ignacio Massat","p2":"Santiago Soler","score":"","done":false,"winner":null},{"id":"m6","p1":"Nicolás Sáez","p2":"Santiago Soler","score":"","done":false,"winner":null}]},{"group":3,"players":["Manuel Reboiras","Pablo Milburn","Juan Diego Boix","Adrián Darias"],"matches":[{"id":"m1","p1":"Manuel Reboiras","p2":"Pablo Milburn","score":"","done":false,"winner":null},{"id":"m2","p1":"Manuel Reboiras","p2":"Juan Diego Boix","score":"","done":false,"winner":null},{"id":"m3","p1":"Manuel Reboiras","p2":"Adrián Darias","score":"","done":false,"winner":null},{"id":"m4","p1":"Pablo Milburn","p2":"Juan Diego Boix","score":"","done":false,"winner":null},{"id":"m5","p1":"Pablo Milburn","p2":"Adrián Darias","score":"","done":false,"winner":null},{"id":"m6","p1":"Juan Diego Boix","p2":"Adrián Darias","score":"","done":false,"winner":null}]},{"group":4,"players":["Alfredo Cat","Richard Felce","Luis Zeballos","Federico Sassi"],"matches":[{"id":"m1","p1":"Alfredo Cat","p2":"Richard Felce","score":"","done":false,"winner":null},{"id":"m2","p1":"Alfredo Cat","p2":"Luis Zeballos","score":"","done":false,"winner":null},{"id":"m3","p1":"Alfredo Cat","p2":"Federico Sassi","score":"","done":false,"winner":null},{"id":"m4","p1":"Richard Felce","p2":"Luis Zeballos","score":"","done":false,"winner":null},{"id":"m5","p1":"Richard Felce","p2":"Federico Sassi","score":"","done":false,"winner":null},{"id":"m6","p1":"Luis Zeballos","p2":"Federico Sassi","score":"","done":false,"winner":null}]},{"group":5,"players":["Adrián Margoniner","Felipe Regules","Ignacio Rivela","Juan Ignacio Ron"],"matches":[{"id":"m1","p1":"Adrián Margoniner","p2":"Felipe Regules","score":"","done":false,"winner":null},{"id":"m2","p1":"Adrián Margoniner","p2":"Ignacio Rivela","score":"","done":false,"winner":null},{"id":"m3","p1":"Adrián Margoniner","p2":"Juan Ignacio Ron","score":"","done":false,"winner":null},{"id":"m4","p1":"Felipe Regules","p2":"Ignacio Rivela","score":"","done":false,"winner":null},{"id":"m5","p1":"Felipe Regules","p2":"Juan Ignacio Ron","score":"","done":false,"winner":null},{"id":"m6","p1":"Ignacio Rivela","p2":"Juan Ignacio Ron","score":"","done":false,"winner":null}]},{"group":6,"players":["Daniel Igorra","Matias Burgos","Conrado Payseé","Agustín Matos"],"matches":[{"id":"m1","p1":"Daniel Igorra","p2":"Matias Burgos","score":"","done":false,"winner":null},{"id":"m2","p1":"Daniel Igorra","p2":"Conrado Payseé","score":"","done":false,"winner":null},{"id":"m3","p1":"Daniel Igorra","p2":"Agustín Matos","score":"","done":false,"winner":null},{"id":"m4","p1":"Matias Burgos","p2":"Conrado Payseé","score":"","done":false,"winner":null},{"id":"m5","p1":"Matias Burgos","p2":"Agustín Matos","score":"","done":false,"winner":null},{"id":"m6","p1":"Conrado Payseé","p2":"Agustín Matos","score":"","done":false,"winner":null}]},{"group":7,"players":["Fernando Vargas","Luis Rodriguez","Francisco Curone","Marcos Villanueva"],"matches":[{"id":"m1","p1":"Fernando Vargas","p2":"Luis Rodriguez","score":"","done":false,"winner":null},{"id":"m2","p1":"Fernando Vargas","p2":"Francisco Curone","score":"","done":false,"winner":null},{"id":"m3","p1":"Fernando Vargas","p2":"Marcos Villanueva","score":"","done":false,"winner":null},{"id":"m4","p1":"Luis Rodriguez","p2":"Francisco Curone","score":"","done":false,"winner":null},{"id":"m5","p1":"Luis Rodriguez","p2":"Marcos Villanueva","score":"","done":false,"winner":null},{"id":"m6","p1":"Francisco Curone","p2":"Marcos Villanueva","score":"","done":false,"winner":null}]},{"group":8,"players":["Ignacio Diez","Gastón Silveira","Marcelo Díaz","Lucas Baldomir"],"matches":[{"id":"m1","p1":"Ignacio Diez","p2":"Gastón Silveira","score":"","done":false,"winner":null},{"id":"m2","p1":"Ignacio Diez","p2":"Marcelo Díaz","score":"","done":false,"winner":null},{"id":"m3","p1":"Ignacio Diez","p2":"Lucas Baldomir","score":"","done":false,"winner":null},{"id":"m4","p1":"Gastón Silveira","p2":"Marcelo Díaz","score":"","done":false,"winner":null},{"id":"m5","p1":"Gastón Silveira","p2":"Lucas Baldomir","score":"","done":false,"winner":null},{"id":"m6","p1":"Marcelo Díaz","p2":"Lucas Baldomir","score":"","done":false,"winner":null}]},{"group":9,"players":["Guillermo Altmann","Luis Francolino","Daniel Nahmias","Marcelo Jorcin"],"matches":[{"id":"m1","p1":"Guillermo Altmann","p2":"Luis Francolino","score":"","done":false,"winner":null},{"id":"m2","p1":"Guillermo Altmann","p2":"Daniel Nahmias","score":"","done":false,"winner":null},{"id":"m3","p1":"Guillermo Altmann","p2":"Marcelo Jorcin","score":"","done":false,"winner":null},{"id":"m4","p1":"Luis Francolino","p2":"Daniel Nahmias","score":"","done":false,"winner":null},{"id":"m5","p1":"Luis Francolino","p2":"Marcelo Jorcin","score":"","done":false,"winner":null},{"id":"m6","p1":"Daniel Nahmias","p2":"Marcelo Jorcin","score":"","done":false,"winner":null}]},{"group":10,"players":["Rodrigo Guerra","Ignacio Platero","Facundo De Souza","Philip Umpierre"],"matches":[{"id":"m1","p1":"Rodrigo Guerra","p2":"Ignacio Platero","score":"","done":false,"winner":null},{"id":"m2","p1":"Rodrigo Guerra","p2":"Facundo De Souza","score":"","done":false,"winner":null},{"id":"m3","p1":"Rodrigo Guerra","p2":"Philip Umpierre","score":"","done":false,"winner":null},{"id":"m4","p1":"Ignacio Platero","p2":"Facundo De Souza","score":"","done":false,"winner":null},{"id":"m5","p1":"Ignacio Platero","p2":"Philip Umpierre","score":"","done":false,"winner":null},{"id":"m6","p1":"Facundo De Souza","p2":"Philip Umpierre","score":"","done":false,"winner":null}]},{"group":11,"players":["Martín Di Marco","Guzmán Zorrilla","José Ignacio Bemaor","Fernando de la Fuente"],"matches":[{"id":"m1","p1":"Martín Di Marco","p2":"Guzmán Zorrilla","score":"","done":false,"winner":null},{"id":"m2","p1":"Martín Di Marco","p2":"José Ignacio Bemaor","score":"","done":false,"winner":null},{"id":"m3","p1":"Martín Di Marco","p2":"Fernando de la Fuente","score":"","done":false,"winner":null},{"id":"m4","p1":"Guzmán Zorrilla","p2":"José Ignacio Bemaor","score":"","done":false,"winner":null},{"id":"m5","p1":"Guzmán Zorrilla","p2":"Fernando de la Fuente","score":"","done":false,"winner":null},{"id":"m6","p1":"José Ignacio Bemaor","p2":"Fernando de la Fuente","score":"","done":false,"winner":null}]},{"group":12,"players":["Fernando Foti","Diego Scasso","Mauricio Fernández","Alejandro Stegmann"],"matches":[{"id":"m1","p1":"Fernando Foti","p2":"Diego Scasso","score":"","done":false,"winner":null},{"id":"m2","p1":"Fernando Foti","p2":"Mauricio Fernández","score":"","done":false,"winner":null},{"id":"m3","p1":"Fernando Foti","p2":"Alejandro Stegmann","score":"","done":false,"winner":null},{"id":"m4","p1":"Diego Scasso","p2":"Mauricio Fernández","score":"","done":false,"winner":null},{"id":"m5","p1":"Diego Scasso","p2":"Alejandro Stegmann","score":"","done":false,"winner":null},{"id":"m6","p1":"Mauricio Fernández","p2":"Alejandro Stegmann","score":"","done":false,"winner":null}]},{"group":13,"players":["Peter Buchner","Diego Aramendia","Enrique Talmon","Marcelo Kaplan"],"matches":[{"id":"m1","p1":"Peter Buchner","p2":"Diego Aramendia","score":"","done":false,"winner":null},{"id":"m2","p1":"Peter Buchner","p2":"Enrique Talmon","score":"","done":false,"winner":null},{"id":"m3","p1":"Peter Buchner","p2":"Marcelo Kaplan","score":"","done":false,"winner":null},{"id":"m4","p1":"Diego Aramendia","p2":"Enrique Talmon","score":"","done":false,"winner":null},{"id":"m5","p1":"Diego Aramendia","p2":"Marcelo Kaplan","score":"","done":false,"winner":null},{"id":"m6","p1":"Enrique Talmon","p2":"Marcelo Kaplan","score":"","done":false,"winner":null}]},{"group":14,"players":["Javier Mosca","Andrés Durán","Fernando Burgueño","Felipe Balerio"],"matches":[{"id":"m1","p1":"Javier Mosca","p2":"Andrés Durán","score":"","done":false,"winner":null},{"id":"m2","p1":"Javier Mosca","p2":"Fernando Burgueño","score":"","done":false,"winner":null},{"id":"m3","p1":"Javier Mosca","p2":"Felipe Balerio","score":"","done":false,"winner":null},{"id":"m4","p1":"Andrés Durán","p2":"Fernando Burgueño","score":"","done":false,"winner":null},{"id":"m5","p1":"Andrés Durán","p2":"Felipe Balerio","score":"","done":false,"winner":null},{"id":"m6","p1":"Fernando Burgueño","p2":"Felipe Balerio","score":"","done":false,"winner":null}]}],"A2":[]};
 window.E3_GROUPS = E3_GROUPS;
-const E3_QUALY_A={"round1":[{"id":"q1_1","p1":"Gustavo Bornhoffer","p2":"Ignacio Fourmane","score":"","done":false,"winner":null},{"id":"q1_2","p1":"Mario Esposto","p2":"Wilfredo Bunge","score":"","done":false,"winner":null},{"id":"q1_3","p1":"Alejandro Lammertyn","p2":"Fabian Riet","score":"","done":false,"winner":null},{"id":"q1_4","p1":"Fernando Muxi","p2":"Gustavo Sánchez","score":"","done":false,"winner":null},{"id":"q1_5","p1":"Ricardo Szyfer","p2":"Javier Vigo","score":"","done":false,"winner":null},{"id":"q1_6","p1":"Enrique Cao","p2":"Jerónimo Acosta","score":"","done":false,"winner":null},{"id":"q1_7","p1":"Alfredo Guelfi","p2":"Ruben Piperno","score":"","done":false,"winner":null},{"id":"q1_8","p1":"Agustin Falco","p2":"Santiago Tolomei","score":"","done":false,"winner":null},{"id":"q1_9","p1":"Walter Zeinal","p2":"Agustin Stremmler","score":"","done":false,"winner":null},{"id":"q1_10","p1":"Luis Pedro Sáenz","p2":"Agustín Pereira Brause","score":"","done":false,"winner":null},{"id":"q1_11","p1":"Juan Pérez del Castillo","p2":"Martin Sorrosal","score":"","done":false,"winner":null},{"id":"q1_12","p1":"Enrique Hanania","p2":"Juan Pablo Eiroa","score":"","done":false,"winner":null},{"id":"q1_13","p1":"Matías Yelin","p2":"Alejandro Coll","score":"","done":false,"winner":null},{"id":"q1_14","p1":"Gustavo Blanco","p2":"Olivier Chetanneau","score":"","done":false,"winner":null},{"id":"q1_15","p1":"Fernando Hareau","p2":"Nelson Russo","score":"","done":false,"winner":null},{"id":"q1_16","p1":"Mariano Lotito","p2":"Diego Carranza","score":"4-6 3-6","done":true,"winner":"Diego Carranza"}]};
+const E3_QUALY_A={"round1":[{"id":"q1_1","p1":"Gustavo Bornhoffer","p2":"Ignacio Fourmane","score":"","done":false,"winner":null},{"id":"q1_2","p1":"Mario Esposto","p2":"Wilfredo Bunge","score":"","done":false,"winner":null},{"id":"q1_3","p1":"Alejandro Lammertyn","p2":"Fabian Riet","score":"","done":false,"winner":null},{"id":"q1_4","p1":"Fernando Muxi","p2":"Gustavo Sánchez","score":"","done":false,"winner":null},{"id":"q1_5","p1":"Ricardo Szyfer","p2":"Javier Vigo","score":"","done":false,"winner":null},{"id":"q1_6","p1":"Enrique Cao","p2":"Jerónimo Acosta","score":"","done":false,"winner":null},{"id":"q1_7","p1":"Alfredo Guelfi","p2":"Ruben Piperno","score":"","done":false,"winner":null},{"id":"q1_8","p1":"Agustin Falco","p2":"Santiago Tolomei","score":"","done":false,"winner":null},{"id":"q1_9","p1":"Walter Zeinal","p2":"Agustin Stremmler","score":"","done":false,"winner":null},{"id":"q1_10","p1":"Luis Pedro Sáenz","p2":"Agustín Pereira Brause","score":"","done":false,"winner":null},{"id":"q1_11","p1":"Juan Pérez del Castillo","p2":"Martin Sorrosal","score":"","done":false,"winner":null},{"id":"q1_12","p1":"Enrique Hanania","p2":"Juan Pablo Eiroa","score":"","done":false,"winner":null},{"id":"q1_13","p1":"Matías Yelin","p2":"Alejandro Coll","score":"","done":false,"winner":null},{"id":"q1_14","p1":"Gustavo Blanco","p2":"Olivier Chetanneau","score":"","done":false,"winner":null},{"id":"q1_15","p1":"Fernando Hareau","p2":"Nelson Russo","score":"","done":false,"winner":null},{"id":"q1_16","p1":"Mariano Lotito","p2":"Diego Carranza","score":"4-6 3-6","done":true,"winner":"Diego Carranza"}],"round2":[{"id":"q2_1","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_1","from2":"q1_2"},{"id":"q2_2","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_3","from2":"q1_4"},{"id":"q2_3","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_5","from2":"q1_6"},{"id":"q2_4","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_7","from2":"q1_8"},{"id":"q2_5","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_9","from2":"q1_10"},{"id":"q2_6","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_11","from2":"q1_12"},{"id":"q2_7","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_13","from2":"q1_14"},{"id":"q2_8","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_15","from2":"q1_16"}]};
 window.E3_QUALY_A = E3_QUALY_A;
 
 // ── ETAPA 3 STATE & RENDER ───────────────────────────────────────────────────
@@ -2341,74 +2379,112 @@ function renderEtapa3Posiciones() {
     '<div class="draw-content">' + html + '</div>';
 }
 
+function e3QualyFillRound2Names(qualy) {
+  // Fill round2 p1/p2 from round1 winners dynamically (display only)
+  var r1 = qualy.round1 || [];
+  (qualy.round2 || []).forEach(function(m2) {
+    var src1 = r1.find(function(x){ return x.id === m2.from1; });
+    var src2 = r1.find(function(x){ return x.id === m2.from2; });
+    m2.p1 = (src1 && src1.done && src1.winner) ? src1.winner : '';
+    m2.p2 = (src2 && src2.done && src2.winner) ? src2.winner : '';
+  });
+}
+
 function renderEtapa3Qualy() {
   var el = document.getElementById('main');
   if (!el) return;
   var qualy = window.E3_QUALY_A || E3_QUALY_A;
-  var ms = qualy.round1 || [];
-  var played = ms.filter(function(m){ return m.done; }).length;
+  e3QualyFillRound2Names(qualy);
+
+  var r1 = qualy.round1 || [];
+  var r2 = qualy.round2 || [];
+  var played1 = r1.filter(function(m){ return m.done; }).length;
+  var played2 = r2.filter(function(m){ return m.done; }).length;
+  var totalAll = r1.length + r2.length;
+  var doneAll = played1 + played2;
 
   var html = '<div class="cup-hero">' +
     '<div class="cup-hero-top"><div class="cup-hero-title">🎯 Qualy — Categoría A</div></div>' +
     '<div class="cup-stats-row">' +
-      '<div class="cup-stat"><div class="cs-val">' + played + '</div><div class="cs-lbl">Jugados</div></div>' +
-      '<div class="cup-stat"><div class="cs-val" style="color:var(--orange)">' + (ms.length-played) + '</div><div class="cs-lbl">Pendientes</div></div>' +
-      '<div class="cup-stat"><div class="cs-val">' + ms.length + '</div><div class="cs-lbl">Total</div></div>' +
+      '<div class="cup-stat"><div class="cs-val">' + doneAll + '</div><div class="cs-lbl">Jugados</div></div>' +
+      '<div class="cup-stat"><div class="cs-val" style="color:var(--orange)">' + (totalAll-doneAll) + '</div><div class="cs-lbl">Pendientes</div></div>' +
+      '<div class="cup-stat"><div class="cs-val">' + totalAll + '</div><div class="cs-lbl">Total</div></div>' +
     '</div></div>';
 
   html += '<div class="round-group"><div class="round-header"><div class="rh-title">1ra Ronda Qualy</div>' +
-          '<div class="rh-count">' + played + '/' + ms.length + ' jugados</div></div>';
-  ms.forEach(function(m) {
-    html += e3QualyMatchCardHtml(m);
+          '<div class="rh-count">' + played1 + '/' + r1.length + ' jugados</div></div>';
+  r1.forEach(function(m) {
+    html += e3QualyMatchCardHtml(m, 'round1');
+  });
+  html += '</div>';
+
+  html += '<div class="round-group"><div class="round-header"><div class="rh-title">2da Ronda Qualy</div>' +
+          '<div class="rh-count">' + played2 + '/' + r2.length + ' jugados</div></div>';
+  r2.forEach(function(m) {
+    html += e3QualyMatchCardHtml(m, 'round2');
   });
   html += '</div>';
 
   el.innerHTML = html;
 }
 
-function e3QualyMatchCardHtml(m) {
-  var p = m.done ? parseScore(m.score) : null;
+function e3QualyMatchCardHtml(m, roundKey) {
+  roundKey = roundKey || 'round1';
+  var roundLabel = roundKey === 'round2' ? '2da Ronda' : '1ra Ronda';
+  var p1tbd = !m.p1; var p2tbd = !m.p2;
+  var bothTbd = p1tbd && p2tbd;
+  var p = (m.done && m.p1 && m.p2) ? parseScore(m.score) : null;
   var w = p ? p.winner : null;
   var isWo = isWO(m.score); var tb = isTB(m.score);
   var stCls, stTxt;
-  if (isWo)        { stCls='st-wo';   stTxt='W.O.'; }
+  if (bothTbd)     { stCls='st-tbd';  stTxt='Por definir'; }
+  else if (isWo)   { stCls='st-wo';   stTxt='W.O.'; }
   else if (m.done) { stCls='st-done'; stTxt='Finalizado'; }
   else             { stCls='st-pend'; stTxt='Pendiente'; }
-  var p1cls = m.done ? (w===1?'winner':'loser') : '';
-  var p2cls = m.done ? (w===2?'winner':'loser') : '';
+  var p1cls = m.done ? (w===1?'winner':'loser') : (p1tbd?'tbd':'');
+  var p2cls = m.done ? (w===2?'winner':'loser') : (p2tbd?'tbd':'');
+  var p1name = p1tbd ? 'Por definir' : m.p1;
+  var p2name = p2tbd ? 'Por definir' : m.p2;
+  var p1click = p1tbd ? '' : 'onclick="openPlayer(\'' + m.p1.replace(/'/g,"\\'") + '\')"';
+  var p2click = p2tbd ? '' : 'onclick="openPlayer(\'' + m.p2.replace(/'/g,"\\'") + '\')"';
   var editingThis = editingE3Id === m.id;
   var footer = '';
-  if (isAdmin && !m.done && !editingThis) {
-    footer = '<button class="btn-load" onclick="startE3QualyEdit(\'' + m.id + '\')">+ Cargar resultado</button>';
+  if (isAdmin && !bothTbd && !m.done && !editingThis) {
+    footer = '<button class="btn-load" onclick="startE3QualyEdit(\'' + m.id + '\',\'' + roundKey + '\')">+ Cargar resultado</button>';
   } else if (isAdmin && m.done) {
-    footer = '<button class="btn-edit" onclick="startE3QualyEdit(\'' + m.id + '\')">✎ Editar</button>' +
-             '<button class="btn-cancel" style="margin-left:6px" onclick="deleteE3QualyScore(\'' + m.id + '\')">✕ Borrar</button>';
+    footer = '<button class="btn-edit" onclick="startE3QualyEdit(\'' + m.id + '\',\'' + roundKey + '\')">✎ Editar</button>' +
+             '<button class="btn-cancel" style="margin-left:6px" onclick="deleteE3QualyScore(\'' + m.id + '\',\'' + roundKey + '\')">✕ Borrar</button>';
   } else if (!m.done && editingThis) {
-    footer = '<div class="score-form"><input class="input" id="e3q-inp-' + m.id + '" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key===\'Enter\')saveE3QualyScore(\'' + m.id + '\')"/>' +
-      '<button class="btn-ok" onclick="saveE3QualyScore(\'' + m.id + '\')">OK</button>' +
+    footer = '<div class="score-form"><input class="input" id="e3q-inp-' + m.id + '" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key===\'Enter\')saveE3QualyScore(\'' + m.id + '\',\'' + roundKey + '\')"/>' +
+      '<button class="btn-ok" onclick="saveE3QualyScore(\'' + m.id + '\',\'' + roundKey + '\')">OK</button>' +
       '<button class="btn-cancel" onclick="editingE3Id=null;renderEtapa3Qualy()">✕</button></div>' +
       '<div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>';
   }
   return '<div class="match-card">' +
-    '<div class="match-card-header"><div class="mh-round">1ra Ronda</div><div class="mh-right">' + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
-    '<div class="player-row ' + p1cls + '"><div class="pr-name" onclick="openPlayer(\'' + m.p1.replace(/'/g,"\\'") + '\')">' + m.p1 + '</div><div class="pr-sets">' + setBoxesHtml(p,1) + '</div><div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
-    '<div class="player-row ' + p2cls + '"><div class="pr-name" onclick="openPlayer(\'' + m.p2.replace(/'/g,"\\'") + '\')">' + m.p2 + '</div><div class="pr-sets">' + setBoxesHtml(p,2) + '</div><div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
+    '<div class="match-card-header"><div class="mh-round">' + roundLabel + '</div><div class="mh-right">' + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
+    '<div class="player-row ' + p1cls + '"><div class="pr-name" ' + p1click + '>' + p1name + '</div><div class="pr-sets">' + (p1tbd?'':setBoxesHtml(p,1)) + '</div><div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
+    '<div class="player-row ' + p2cls + '"><div class="pr-name" ' + p2click + '>' + p2name + '</div><div class="pr-sets">' + (p2tbd?'':setBoxesHtml(p,2)) + '</div><div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
     (footer ? '<div class="match-footer">' + footer + '</div>' : '') +
   '</div>';
 }
 
-function startE3QualyEdit(id) {
+function findE3QualyMatch(id, roundKey) {
+  var qualy = window.E3_QUALY_A || E3_QUALY_A;
+  var arr = qualy[roundKey || 'round1'] || [];
+  return arr.find(function(x){ return x.id === id; });
+}
+
+function startE3QualyEdit(id, roundKey) {
   editingE3Id = id;
   renderEtapa3Qualy();
   setTimeout(function(){ var el = document.getElementById('e3q-inp-'+id); if(el) el.focus(); }, 50);
 }
 
-function saveE3QualyScore(id) {
+function saveE3QualyScore(id, roundKey) {
   var el = document.getElementById('e3q-inp-'+id);
   if (!el) return;
   var raw = el.value.trim();
-  var qualy = window.E3_QUALY_A || E3_QUALY_A;
-  var m = qualy.round1.find(function(x){ return x.id === id; });
+  var m = findE3QualyMatch(id, roundKey);
   if (!m) return;
 
   var woMatch = raw.toUpperCase().replace(/\s+/g,' ').match(/^W\.?O\.?\s*([12])$/);
@@ -2416,7 +2492,7 @@ function saveE3QualyScore(id) {
     var woNum = parseInt(woMatch[1]);
     m.score='WO'; m.done=true; m.winner = woNum===1 ? m.p2 : m.p1;
     editingE3Id=null;
-    if(window.fbSaveMatch) window.fbSaveMatch('e3_qualyA', id, 'WO', m.winner);
+    if(window.fbSaveMatch) window.fbSaveMatch('e3_qualyA_'+(roundKey||'round1'), id, 'WO', m.winner);
     showToast('✓ W.O. — '+m.winner+' avanza'); renderEtapa3Qualy(); return;
   }
   if (!raw||!/\d+-\d+/.test(raw)){ showToast('Formato inválido'); el.focus(); return; }
@@ -2428,17 +2504,16 @@ function saveE3QualyScore(id) {
   if (isSTB) { var ab2=parts[2].split('-').map(Number); if(ab2[0]>ab2[1])p1sets++; else p2sets++; }
   m.score=raw; m.done=true; m.winner = p1sets>p2sets ? m.p1 : m.p2;
   editingE3Id=null;
-  if(window.fbSaveMatch) window.fbSaveMatch('e3_qualyA', id, raw, m.winner);
+  if(window.fbSaveMatch) window.fbSaveMatch('e3_qualyA_'+(roundKey||'round1'), id, raw, m.winner);
   showToast('✓ '+m.winner+' avanza'); renderEtapa3Qualy();
 }
 
-function deleteE3QualyScore(id) {
+function deleteE3QualyScore(id, roundKey) {
   if(!confirm('¿Borrar el resultado?')) return;
-  var qualy = window.E3_QUALY_A || E3_QUALY_A;
-  var m = qualy.round1.find(function(x){ return x.id === id; });
+  var m = findE3QualyMatch(id, roundKey);
   if (!m) return;
   m.score=''; m.done=false; m.winner=null;
-  if(window.fbSaveMatch) window.fbSaveMatch('e3_qualyA', id, '__deleted__', '__deleted__');
+  if(window.fbSaveMatch) window.fbSaveMatch('e3_qualyA_'+(roundKey||'round1'), id, '__deleted__', '__deleted__');
   showToast('✓ Resultado borrado'); renderEtapa3Qualy();
 }
 
