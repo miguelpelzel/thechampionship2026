@@ -98,6 +98,7 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
 .mh-round{font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .mh-right{display:flex;align-items:center;gap:5px}
 .mh-status{font-size:.58rem;font-weight:600;padding:2px 7px;border-radius:10px;text-transform:uppercase}
+.h2h-quickbtn{background:#f0f4ff;color:var(--blue);border:1px solid var(--blue-light);border-radius:6px;padding:3px 8px;font-size:.65rem;font-weight:600;cursor:pointer;margin-left:6px;white-space:nowrap}
 .st-done{background:#e6f4f0;color:var(--green)}.st-pend{background:#fff3e0;color:var(--orange)}.st-tbd{background:#f0f2f5;color:var(--muted)}.st-wo{background:#fff0f0;color:var(--red)}.st-ret{background:#fff3e0;color:var(--orange)}
 .stb-note{font-size:.56rem;background:#eef2ff;color:#4f46e5;padding:2px 6px;border-radius:4px;font-weight:600}
 /* PLAYER ROWS */
@@ -528,6 +529,21 @@ function setBoxesHtml(parsed, playerIdx) {
 }
 
 // ── NAV ───────────────────────────────────────────────────────────────────────
+function openH2H(p1, p2) {
+  h2hP1 = p1; h2hP2 = p2;
+  h2hSearch1 = ''; h2hSearch2 = ''; h2hDropdown = null;
+  view = 'h2h';
+  document.querySelectorAll('.bn-item').forEach(function(el){ el.classList.remove('active'); });
+  var btn = document.getElementById('bn-h2h');
+  if (btn) btn.classList.add('active');
+  var ne1=document.getElementById('nav-e1'); if(ne1) ne1.style.display='none';
+  var ne2=document.getElementById('nav-e2'); if(ne2) ne2.style.display='none';
+  var ne3=document.getElementById('nav-e3'); if(ne3) ne3.style.display='none';
+  var nh=document.getElementById('nav-home'); if(nh) nh.style.display='';
+  var cnw=document.getElementById('cup-nav-wrap'); if(cnw) cnw.style.display='none';
+  renderMain();
+}
+
 function navView(v){
   window._userNavigated = true;
   const sub = document.getElementById('header-sub');
@@ -678,6 +694,13 @@ function renderDraws() {
     <div class="draw-content">${matchHtml||'<div class="empty">Sin partidos</div>'}</div>`;
 }
 
+function h2hBtnHtml(p1, p2) {
+  if (!p1 || !p2 || p1==='Por definir' || p2==='Por definir') return '';
+  var esc1 = p1.replace(/'/g,"\\'");
+  var esc2 = p2.replace(/'/g,"\\'");
+  return '<button class="h2h-quickbtn" onclick="event.stopPropagation();openH2H(\'' + esc1 + '\',\'' + esc2 + '\')" title="Ver historial H2H">⚔️ H2H</button>';
+}
+
 function cardHtml(m) {
   const p = m.done ? parseScore(m.score) : null;
   const w = p ? p.winner : null;
@@ -701,7 +724,7 @@ function cardHtml(m) {
   else if (isAdmin && m.done) footer = `<button class="btn-edit" onclick="editScore('${m.id}')">✎ Editar</button>`;
   else if (!m.done && editingId===m.id) footer = `<div class="score-form"><input class="input" id="si-${m.id}" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key==='Enter')saveScore('${m.id}')"/><button class="btn-ok" onclick="saveScore('${m.id}')">OK</button><button class="btn-cancel" onclick="cancelEdit()">✕</button></div><div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · Walk Over: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
   return `<div class="match-card">
-    <div class="match-card-header"><div class="mh-round">${m.round} de Final</div><div class="mh-right">${tb?'<span class="stb-note">STB</span>':''}<span class="mh-status ${stCls}">${stTxt}</span></div></div>
+    <div class="match-card-header"><div class="mh-round">${m.round} de Final</div><div class="mh-right">${h2hBtnHtml(m.p1,m.p2)}${tb?'<span class="stb-note">STB</span>':''}<span class="mh-status ${stCls}">${stTxt}</span></div></div>
     <div class="player-row ${p1cls}"><div class="pr-name" ${p1click}>${p1n}</div><div class="pr-sets">${setBoxesHtml(p,1)}${p1woTag}</div><div class="pr-check">${w===1?'✓':''}</div></div>
     <div class="player-row ${p2cls}"><div class="pr-name" ${p2click}>${p2n}</div><div class="pr-sets">${setBoxesHtml(p,2)}${p2woTag}</div><div class="pr-check">${w===2?'✓':''}</div></div>
     ${footer?`<div class="match-footer">${footer}</div>`:''}
@@ -2461,7 +2484,7 @@ function e3QualyMatchCardHtml(m, roundKey) {
       '<div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>';
   }
   return '<div class="match-card">' +
-    '<div class="match-card-header"><div class="mh-round">' + roundLabel + '</div><div class="mh-right">' + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
+    '<div class="match-card-header"><div class="mh-round">' + roundLabel + '</div><div class="mh-right">' + h2hBtnHtml(m.p1,m.p2) + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
     '<div class="player-row ' + p1cls + '"><div class="pr-name" ' + p1click + '>' + p1name + '</div><div class="pr-sets">' + (p1tbd?'':setBoxesHtml(p,1)) + '</div><div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
     '<div class="player-row ' + p2cls + '"><div class="pr-name" ' + p2click + '>' + p2name + '</div><div class="pr-sets">' + (p2tbd?'':setBoxesHtml(p,2)) + '</div><div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
     (footer ? '<div class="match-footer">' + footer + '</div>' : '') +
@@ -2666,7 +2689,7 @@ function e2CupCardHtml(m) {
     footer = `<div class="score-form"><input class="input" id="e2cup-inp-${m.id}" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key==='Enter')saveE2CupScore('${m.id}','${e2CurrentCup}')"/><button class="btn-ok" onclick="saveE2CupScore('${m.id}','${e2CurrentCup}')">OK</button><button class="btn-cancel" onclick="editingE2CupId=null;renderE2Cuadros()">✕</button></div><div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>`;
   const roundLabel = m.round === 'Final' ? 'Final' : `${m.round} de Final`;
   return `<div class="match-card">
-    <div class="match-card-header"><div class="mh-round">${roundLabel}</div><div class="mh-right">${tb?'<span class="stb-note">STB</span>':''}<span class="mh-status ${stCls}">${stTxt}</span></div></div>
+    <div class="match-card-header"><div class="mh-round">${roundLabel}</div><div class="mh-right">${h2hBtnHtml(m.p1,m.p2)}${tb?'<span class="stb-note">STB</span>':''}<span class="mh-status ${stCls}">${stTxt}</span></div></div>
     <div class="player-row ${p1cls}"><div class="pr-name" ${p1click}>${p1n}</div><div class="pr-sets">${setBoxesHtml(p,1)}${p1woTag}</div><div class="pr-check">${w===1?'✓':''}</div></div>
     <div class="player-row ${p2cls}"><div class="pr-name" ${p2click}>${p2n}</div><div class="pr-sets">${setBoxesHtml(p,2)}${p2woTag}</div><div class="pr-check">${w===2?'✓':''}</div></div>
     ${footer?`<div class="match-footer">${footer}</div>`:''}
