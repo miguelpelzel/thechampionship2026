@@ -2150,7 +2150,7 @@ function e3GroupMatchCardHtml(m, cat, grpNum) {
       '<div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>';
   }
   return '<div class="match-card">' +
-    '<div class="match-card-header"><div class="mh-round">Fase de Grupos</div><div class="mh-right">' + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
+    '<div class="match-card-header"><div class="mh-round">Fase de Grupos</div><div class="mh-right">' + h2hBtnHtml(m.p1,m.p2) + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
     '<div class="player-row ' + p1cls + '"><div class="pr-name" onclick="openPlayer(\'' + m.p1.replace(/'/g,"\\'") + '\')">' + m.p1 + '</div><div class="pr-sets">' + setBoxesHtml(p,1) + p1woTag + '</div><div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
     '<div class="player-row ' + p2cls + '"><div class="pr-name" onclick="openPlayer(\'' + m.p2.replace(/'/g,"\\'") + '\')">' + m.p2 + '</div><div class="pr-sets">' + setBoxesHtml(p,2) + p2woTag + '</div><div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
     (footer ? '<div class="match-footer">' + footer + '</div>' : '') +
