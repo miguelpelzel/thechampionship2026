@@ -1232,41 +1232,12 @@ function normalizeCupName(cup){
 }
 
 function getH2HMatches(a,b){
-  const matches=[];
-  HIST_MATCHES.forEach(m=>{if((m.p1===a&&m.p2===b)||(m.p1===b&&m.p2===a))matches.push({...m,source:'hist'});});
-  const dA=PLAYER_DATA[a];
-  if(dA){
-    dA.group_matches.forEach(m=>{if(m.opp===b)matches.push({year:2026,etapa:1,fase:'Fase de Grupos',instancia:'Fase de Grupos',p1:a,p2:b,score:m.score,winner:m.won?a:b,source:'group2026'});});
-    dA.playoff_matches.forEach(m=>{if(m.opp===b){
-      const fase=normalizeCupName(m.cup);
-      matches.push({year:2026,etapa:1,fase,instancia:m.round,p1:a,p2:b,score:m.score,winner:m.won?a:b,source:'playoff2026'});
-    }});
-  }
-  const CKM={'catA_oro':'Cat. A – Copa Oro','catA_plata':'Cat. A – Copa Plata','catB_oro':'Cat. B – Copa Oro','catB_plata':'Cat. B – Copa Plata'};
-  Object.entries(CUP_STATE).forEach(([key,cup])=>{
-    cup.matches.forEach(m=>{
-      if(!m.done||isBYE(m.score))return;
-      if((m.p1===a&&m.p2===b)||(m.p1===b&&m.p2===a)){
-        const canonFase=CKM[key]||'Copa';
-        const already=matches.some(x=>x.source==='playoff2026'&&x.instancia===m.round&&x.fase===canonFase);
-        if(!already)matches.push({year:2026,etapa:1,fase:canonFase,instancia:m.round,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner,source:'live'});
-      }
-    });
+  // Use the same complete match source as the player profile to guarantee consistency
+  const allA = getAllPlayerMatches(a);
+  const matches = allA.filter(m=>{
+    if (m.score==='NJ') return false; // NJ no aparece en H2H
+    return (m.p1===a&&m.p2===b)||(m.p1===b&&m.p2===a);
   });
-  // Etapa 2
-  if(window.E2_STATE){
-    ['A','B'].forEach(cat=>{
-      (window.E2_STATE[cat]||[]).forEach(g=>{
-        g.matches.forEach(m=>{
-          if(!m.done||!m.score)return;
-          if((m.p1===a&&m.p2===b)||(m.p1===b&&m.p2===a)){
-            if(m.score==='NJ') return; // NJ no aparece en H2H
-            matches.push({year:2026,etapa:2,fase:'Fase de Grupos E2',instancia:'Grupo '+g.group+' · Cat. '+cat,p1:m.p1,p2:m.p2,score:m.score,winner:m.winner,source:'e2'});
-          }
-        });
-      });
-    });
-  }
   matches.sort((a,b)=>b.year-a.year||b.etapa-a.etapa);
   return matches;
 }
