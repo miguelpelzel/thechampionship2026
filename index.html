@@ -2146,7 +2146,7 @@ function e3GroupMatchCardHtml(m, cat, grpNum) {
   } else if (!m.done && editingThis) {
     footer = '<div class="score-form"><input class="input" id="e3-inp-' + m.id + '" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key===\'Enter\')saveE3Score(\'' + m.id + '\',\'' + matchKey + '\')"/>' +
       '<button class="btn-ok" onclick="saveE3Score(\'' + m.id + '\',\'' + matchKey + '\')">OK</button>' +
-      '<button class="btn-cancel" onclick="editingE3Id=null;renderEtapa3Grupos()">✕</button></div>' +
+      '<button class="btn-cancel" onclick="editingE3Id=null;renderCurrentE3GroupView()">✕</button></div>' +
       '<div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>';
   }
   return '<div class="match-card">' +
@@ -2157,9 +2157,14 @@ function e3GroupMatchCardHtml(m, cat, grpNum) {
   '</div>';
 }
 
+function renderCurrentE3GroupView() {
+  if (e3View === 'partidos') renderEtapa3Partidos();
+  else renderEtapa3Grupos();
+}
+
 function startE3Edit(id, matchKey) {
   editingE3Id = id;
-  renderEtapa3Grupos();
+  renderCurrentE3GroupView();
   setTimeout(function(){ var el = document.getElementById('e3-inp-'+id); if(el) el.focus(); }, 50);
 }
 
@@ -2186,7 +2191,7 @@ function saveE3Score(id, matchKey) {
     m.score='WO'; m.done=true; m.winner = woNum===1 ? m.p2 : m.p1;
     editingE3Id=null;
     if(window.fbSaveMatch) window.fbSaveMatch('e3_'+matchKey, id, 'WO', m.winner);
-    showToast('✓ W.O. — '+m.winner+' avanza'); renderEtapa3Grupos(); return;
+    showToast('✓ W.O. — '+m.winner+' avanza'); renderCurrentE3GroupView(); return;
   }
   if (!raw||!/\d+-\d+/.test(raw)){ showToast('Formato inválido'); el.focus(); return; }
   var parts = raw.split(/\s+/);
@@ -2198,7 +2203,7 @@ function saveE3Score(id, matchKey) {
   m.score=raw; m.done=true; m.winner = p1sets>p2sets ? m.p1 : m.p2;
   editingE3Id=null;
   if(window.fbSaveMatch) window.fbSaveMatch('e3_'+matchKey, id, raw, m.winner);
-  showToast('✓ '+m.winner+' avanza'); renderEtapa3Grupos();
+  showToast('✓ '+m.winner+' avanza'); renderCurrentE3GroupView();
 }
 
 function deleteE3Score(id, matchKey) {
@@ -2207,7 +2212,7 @@ function deleteE3Score(id, matchKey) {
   if (!m) return;
   m.score=''; m.done=false; m.winner=null;
   if(window.fbSaveMatch) window.fbSaveMatch('e3_'+matchKey, id, '__deleted__', '__deleted__');
-  showToast('✓ Resultado borrado'); renderEtapa3Grupos();
+  showToast('✓ Resultado borrado'); renderCurrentE3GroupView();
 }
 
 function renderEtapa3Partidos() {
@@ -2223,12 +2228,20 @@ function renderEtapa3Partidos() {
   var catTabs = '<div style="display:flex;gap:8px;padding:10px 1rem;background:var(--white);border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap">' +
     cats.map(function(c) {
       var active = c.key === e3Cat ? 'active-oro' : '';
-      return '<button onclick="e3Cat=\'' + c.key + '\';renderEtapa3Partidos()" class="cup-tab ' + active + '">' + c.label + '</button>';
+      return '<button onclick="e3Cat=\'' + c.key + '\';e3GrpFilter=\'all\';renderEtapa3Partidos()" class="cup-tab ' + active + '">' + c.label + '</button>';
     }).join('') +
   '</div>';
 
   var allGroups = window.E3_GROUPS || E3_GROUPS;
   var groups = allGroups[e3Cat] || [];
+
+  var grpPills = ['all'].concat(groups.map(function(g){ return g.group; })).map(function(g) {
+    var active = e3GrpFilter === g;
+    var label = g === 'all' ? 'Todos' : 'G' + g;
+    var gv = g === 'all' ? "'all'" : g;
+    return '<button onclick="e3GrpFilter=' + gv + ';renderEtapa3Partidos()" style="padding:4px 12px;border-radius:16px;border:1px solid ' + (active?'var(--blue)':'var(--border)') + ';background:' + (active?'var(--blue)':'transparent') + ';color:' + (active?'white':'var(--muted)') + ';font-size:.7rem;font-weight:' + (active?700:400) + ';cursor:pointer;white-space:nowrap;font-family:\'Inter\',sans-serif">' + label + '</button>';
+  }).join('');
+
   var totalAll = 0, doneAll = 0;
   groups.forEach(function(g){
     g.matches.forEach(function(m){ totalAll++; if(m.done) doneAll++; });
@@ -2246,10 +2259,12 @@ function renderEtapa3Partidos() {
       '<div class="cup-stat"><div class="cs-val">' + pctAll + '%</div><div class="cs-lbl">Avance</div></div>' +
     '</div></div>';
 
+  var filtered = e3GrpFilter === 'all' ? groups : groups.filter(function(g){ return g.group === e3GrpFilter; });
+
   if (!groups.length) {
     html += '<div class="empty" style="padding:1.5rem;color:var(--muted);font-size:.85rem;font-style:italic;text-align:center">Sin grupos definidos aún</div>';
   } else {
-    groups.forEach(function(g) {
+    filtered.forEach(function(g) {
       var played = g.matches.filter(function(m){ return m.done; }).length;
       html += '<div style="padding:0.6rem 1.2rem 0.3rem;background:#f8f9fb;border-top:1px solid var(--border)">' +
         '<div style="display:flex;justify-content:space-between;align-items:center">' +
@@ -2262,7 +2277,7 @@ function renderEtapa3Partidos() {
     });
   }
 
-  el.innerHTML = catTabs + html;
+  el.innerHTML = catTabs + '<div class="round-nav">' + grpPills + '</div>' + html;
 }
 
 function calcE3GroupStandings(group) {
