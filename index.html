@@ -2124,28 +2124,32 @@ function renderEtapa3Grupos() {
 
 
 function e3GroupMatchCardHtml(m, cat, grpNum) {
-  var p = m.done ? parseScore(m.score) : null;
+  var isNJ = m.score === 'NJ';
+  var p = (m.done && !isNJ) ? parseScore(m.score) : null;
   var w = p ? p.winner : null;
   var isWo = isWO(m.score); var tb = isTB(m.score);
   var stCls, stTxt;
-  if (isWo)        { stCls='st-wo';   stTxt='W.O.'; }
+  if (isNJ)        { stCls='st-tbd';  stTxt='No Jugado'; }
+  else if (isWo)   { stCls='st-wo';   stTxt='W.O.'; }
   else if (m.done) { stCls='st-done'; stTxt='Finalizado'; }
   else             { stCls='st-pend'; stTxt='Pendiente'; }
-  var p1cls = m.done ? (w===1?'winner':'loser') : '';
-  var p2cls = m.done ? (w===2?'winner':'loser') : '';
+  var p1cls = (m.done && !isNJ) ? (w===1?'winner':'loser') : '';
+  var p2cls = (m.done && !isNJ) ? (w===2?'winner':'loser') : '';
   var p1woTag = isWo&&w===2 ? '<span class="wo-tag">W.O.</span>' : '';
   var p2woTag = isWo&&w===1 ? '<span class="wo-tag">W.O.</span>' : '';
   var editingThis = editingE3Id === m.id;
   var footer = '';
   var matchKey = cat + '_' + grpNum;
   if (isAdmin && !m.done && !editingThis) {
-    footer = '<button class="btn-load" onclick="startE3Edit(\'' + m.id + '\',\'' + matchKey + '\')">+ Cargar resultado</button>';
+    footer = '<button class="btn-load" onclick="startE3Edit(\'' + m.id + '\',\'' + matchKey + '\')">+ Cargar resultado</button>' +
+      '<button class="btn-cancel" style="margin-left:6px;background:#6c757d;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.78rem;cursor:pointer" onclick="saveE3NJ(\'' + m.id + '\',\'' + matchKey + '\')">N/J</button>';
   } else if (isAdmin && m.done) {
     footer = '<button class="btn-edit" onclick="startE3Edit(\'' + m.id + '\',\'' + matchKey + '\')">✎ Editar</button>' +
              '<button class="btn-cancel" style="margin-left:6px" onclick="deleteE3Score(\'' + m.id + '\',\'' + matchKey + '\')">✕ Borrar</button>';
   } else if (!m.done && editingThis) {
     footer = '<div class="score-form"><input class="input" id="e3-inp-' + m.id + '" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key===\'Enter\')saveE3Score(\'' + m.id + '\',\'' + matchKey + '\')"/>' +
       '<button class="btn-ok" onclick="saveE3Score(\'' + m.id + '\',\'' + matchKey + '\')">OK</button>' +
+      '<button class="btn-cancel" style="background:#6c757d" onclick="saveE3NJ(\'' + m.id + '\',\'' + matchKey + '\')">N/J</button>' +
       '<button class="btn-cancel" onclick="editingE3Id=null;renderCurrentE3GroupView()">✕</button></div>' +
       '<div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2) · <b>W.O. 2</b> (gana J1)</div>';
   }
@@ -2204,6 +2208,16 @@ function saveE3Score(id, matchKey) {
   editingE3Id=null;
   if(window.fbSaveMatch) window.fbSaveMatch('e3_'+matchKey, id, raw, m.winner);
   showToast('✓ '+m.winner+' avanza'); renderCurrentE3GroupView();
+}
+
+function saveE3NJ(id, matchKey) {
+  var m = findE3Match(id, matchKey);
+  if (!m) return;
+  m.score = 'NJ'; m.done = true; m.winner = null;
+  editingE3Id = null;
+  if (window.fbSaveMatch) window.fbSaveMatch('e3_'+matchKey, id, 'NJ', 'NJ');
+  showToast('✓ Partido marcado como No Jugado');
+  renderCurrentE3GroupView();
 }
 
 function deleteE3Score(id, matchKey) {
@@ -2282,20 +2296,32 @@ function renderEtapa3Partidos() {
 
 function calcE3GroupStandings(group) {
   // Returns array of {name, pj, w, l, gamesWon, gamesLost, gamesDiff, pts}
+  // Points system (same as Etapa 2):
+  //   - Winner in 2 sets = 4 pts, winner in super tiebreak = 3 pts
+  //   - W.O. winner = 4 pts, 0 impact on games diff (no sets played)
+  //   - Loser = 0 pts always
+  //   - NJ (not played) = match does NOT count (no pj, no points, no games) for either player
   var stats = {};
   group.players.forEach(function(p) {
-    stats[p] = {name:p, pj:0, w:0, l:0, gamesWon:0, gamesLost:0};
+    stats[p] = {name:p, pj:0, w:0, l:0, gamesWon:0, gamesLost:0, pts:0};
   });
   group.matches.forEach(function(m) {
     if (!m.done) return;
+    if (m.score === 'NJ') return; // NJ: no counts toward anything for either player
+
     var isWo = isWO(m.score);
+    var isTb = isTB(m.score);
     var p = isWo ? null : parseScore(m.score);
     var w = isWo ? (m.winner===m.p1?1:2) : (p ? p.winner : null);
     if (!w) return;
 
     stats[m.p1].pj++; stats[m.p2].pj++;
+    var winnerKey = (w === 1) ? m.p1 : m.p2;
     if (w === 1) { stats[m.p1].w++; stats[m.p2].l++; }
     else         { stats[m.p2].w++; stats[m.p1].l++; }
+
+    // Points: W.O. winner = 4, 2-set winner = 4, super-tiebreak winner = 3; loser always 0
+    stats[winnerKey].pts += isWo ? 4 : (isTb ? 3 : 4);
 
     if (!isWo && p) {
       p.sets.forEach(function(s) {
@@ -2303,10 +2329,10 @@ function calcE3GroupStandings(group) {
         stats[m.p2].gamesWon  += s.b; stats[m.p2].gamesLost += s.a;
       });
     }
+    // W.O. has no game impact (0-0 diff contribution)
   });
   var rows = Object.values(stats).map(function(s) {
     s.gamesDiff = s.gamesWon - s.gamesLost;
-    s.pts = s.w; // 1 point per win (round robin)
     return s;
   });
   rows.sort(function(a,b) {
