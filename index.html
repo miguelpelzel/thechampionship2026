@@ -1009,11 +1009,17 @@ function getAllPlayerMatches(name) {
   }
   // Etapa 3 Qualy
   const e3qualy = window.E3_QUALY_A || (typeof E3_QUALY_A !== 'undefined' ? E3_QUALY_A : null);
-  if (e3qualy && e3qualy.round1) {
-    e3qualy.round1.forEach(m => {
+  if (e3qualy) {
+    (e3qualy.round1 || []).forEach(m => {
       if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
       allMatches.push({year:2026, etapa:3, fase:'Qualy Cat. A',
         instancia:'1ra Ronda', p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+    });
+    (e3qualy.round2 || []).forEach(m => {
+      if (!m.done || !m.p1 || !m.p2) return;
+      if (m.p1 !== name && m.p2 !== name) return;
+      allMatches.push({year:2026, etapa:3, fase:'Qualy Cat. A',
+        instancia:'2da Ronda', p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
     });
   }
   allMatches.sort((a,b) => b.year-a.year || b.etapa-a.etapa);
