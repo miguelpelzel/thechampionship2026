@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'championship-v167';
+const CACHE_VERSION = 'championship-v168';
 
 // Forzar activación inmediata sin esperar
 self.addEventListener('install', e => {
