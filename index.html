@@ -2334,7 +2334,9 @@ function calcE3GroupStandings(group) {
     stats[winnerKey].pts += isWo ? 4 : (isTb ? 3 : 4);
 
     if (!isWo && p) {
+      // Super tiebreak (3rd set, s.tb===true) excluded from game diff
       p.sets.forEach(function(s) {
+        if (s.tb) return;
         stats[m.p1].gamesWon  += s.a; stats[m.p1].gamesLost += s.b;
         stats[m.p2].gamesWon  += s.b; stats[m.p2].gamesLost += s.a;
       });
