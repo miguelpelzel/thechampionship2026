@@ -1044,6 +1044,8 @@ function getAllPlayerMatches(name) {
       allMatches.push({year:2026, etapa:3, fase:'Qualy Cat. A',
         instancia:'1ra Ronda', p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
     });
+    // Fill round2 player names from round1 winners before checking
+    if (typeof e3QualyFillRound2Names === 'function') e3QualyFillRound2Names(e3qualy);
     (e3qualy.round2 || []).forEach(m => {
       if (!m.done || !m.p1 || !m.p2) return;
       if (m.p1 !== name && m.p2 !== name) return;
