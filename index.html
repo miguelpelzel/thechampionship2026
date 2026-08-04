@@ -972,6 +972,25 @@ function renderHistory(){
 }
 
 // ── PLAYERS ───────────────────────────────────────────────────────────────────
+function normPlayerName(name) {
+  // Normalize known name variants to canonical spelling
+  var fixes = {
+    'Agustin Falco': 'Agustín Falco',
+    'Agustin Matos': 'Agustín Matos',
+    'Agustin Novegil': 'Agustín Novegil',
+    'Agustin Stremmler': 'Agustín Stremmler',
+    'Martin Matos': 'Martín Matos',
+    'Martin Fraga': 'Martín Fraga',
+    'Martin Slinger': 'Martín Slinger',
+    'Martin Di Marco': 'Martín Di Marco',
+    'Fabian Riet': 'Fabián Riet',
+    'Nicolas Rubio': 'Nicolás Rubio',
+    'Mauricio Fernandez': 'Mauricio Fernández',
+    'Philipp Umpierre': 'Philip Umpierre',
+  };
+  return (name && fixes[name]) ? fixes[name] : name;
+}
+
 function getAllPlayerMatches(name) {
   const d = PLAYER_DATA[name];
   const allMatches = [];
@@ -1039,18 +1058,22 @@ function getAllPlayerMatches(name) {
   // Etapa 3 Qualy
   const e3qualy = window.E3_QUALY_A || (typeof E3_QUALY_A !== 'undefined' ? E3_QUALY_A : null);
   if (e3qualy) {
+    const _norm = typeof normPlayerName==='function' ? normPlayerName : function(x){return x;};
     (e3qualy.round1 || []).forEach(m => {
-      if (!m.done || (m.p1 !== name && m.p2 !== name)) return;
+      if (!m.done) return;
+      const np1=_norm(m.p1), np2=_norm(m.p2), nw=_norm(m.winner);
+      if (np1 !== name && np2 !== name) return;
       allMatches.push({year:2026, etapa:3, fase:'Qualy Cat. A',
-        instancia:'1ra Ronda', p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+        instancia:'1ra Ronda', p1:np1, p2:np2, score:m.score, winner:nw});
     });
     // Fill round2 player names from round1 winners before checking
     if (typeof e3QualyFillRound2Names === 'function') e3QualyFillRound2Names(e3qualy);
     (e3qualy.round2 || []).forEach(m => {
       if (!m.done || !m.p1 || !m.p2) return;
-      if (m.p1 !== name && m.p2 !== name) return;
+      const np1=_norm(m.p1), np2=_norm(m.p2), nw=_norm(m.winner);
+      if (np1 !== name && np2 !== name) return;
       allMatches.push({year:2026, etapa:3, fase:'Qualy Cat. A',
-        instancia:'2da Ronda', p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+        instancia:'2da Ronda', p1:np1, p2:np2, score:m.score, winner:nw});
     });
   }
   allMatches.sort((a,b) => b.year-a.year || b.etapa-a.etapa);
@@ -2459,24 +2482,6 @@ function renderEtapa3Posiciones() {
     '<div class="draw-content">' + html + '</div>';
 }
 
-function normPlayerName(name) {
-  // Normalize known name variants to canonical spelling
-  var fixes = {
-    'Agustin Falco': 'Agustín Falco',
-    'Agustin Matos': 'Agustín Matos',
-    'Agustin Novegil': 'Agustín Novegil',
-    'Agustin Stremmler': 'Agustín Stremmler',
-    'Martin Matos': 'Martín Matos',
-    'Martin Fraga': 'Martín Fraga',
-    'Martin Slinger': 'Martín Slinger',
-    'Martin Di Marco': 'Martín Di Marco',
-    'Fabian Riet': 'Fabián Riet',
-    'Nicolas Rubio': 'Nicolás Rubio',
-    'Mauricio Fernandez': 'Mauricio Fernández',
-    'Philipp Umpierre': 'Philip Umpierre',
-  };
-  return (name && fixes[name]) ? fixes[name] : name;
-}
 
 function e3QualyFillRound2Names(qualy) {
   // Fill round2 p1/p2 from round1 winners dynamically (display only)
