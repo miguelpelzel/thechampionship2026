@@ -2459,14 +2459,33 @@ function renderEtapa3Posiciones() {
     '<div class="draw-content">' + html + '</div>';
 }
 
+function normPlayerName(name) {
+  // Normalize known name variants to canonical spelling
+  var fixes = {
+    'Agustin Falco': 'Agustín Falco',
+    'Agustin Matos': 'Agustín Matos',
+    'Agustin Novegil': 'Agustín Novegil',
+    'Agustin Stremmler': 'Agustín Stremmler',
+    'Martin Matos': 'Martín Matos',
+    'Martin Fraga': 'Martín Fraga',
+    'Martin Slinger': 'Martín Slinger',
+    'Martin Di Marco': 'Martín Di Marco',
+    'Fabian Riet': 'Fabián Riet',
+    'Nicolas Rubio': 'Nicolás Rubio',
+    'Mauricio Fernandez': 'Mauricio Fernández',
+    'Philipp Umpierre': 'Philip Umpierre',
+  };
+  return (name && fixes[name]) ? fixes[name] : name;
+}
+
 function e3QualyFillRound2Names(qualy) {
   // Fill round2 p1/p2 from round1 winners dynamically (display only)
   var r1 = qualy.round1 || [];
   (qualy.round2 || []).forEach(function(m2) {
     var src1 = r1.find(function(x){ return x.id === m2.from1; });
     var src2 = r1.find(function(x){ return x.id === m2.from2; });
-    m2.p1 = (src1 && src1.done && src1.winner) ? src1.winner : '';
-    m2.p2 = (src2 && src2.done && src2.winner) ? src2.winner : '';
+    m2.p1 = (src1 && src1.done && src1.winner) ? normPlayerName(src1.winner) : '';
+    m2.p2 = (src2 && src2.done && src2.winner) ? normPlayerName(src2.winner) : '';
   });
 }
 
