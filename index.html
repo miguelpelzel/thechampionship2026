@@ -2616,9 +2616,9 @@ function exportE3Partidos() {
       ' partido' + (catTotal!==1?'s':'') + ' pendiente' + (catTotal!==1?'s':'') + '</div>';
 
     body += '<table class="match-table"><colgroup>' +
-      '<col class="num"><col class="grp"><col class="name"><col class="vs"><col class="name"><col class="res">' +
+      '<col class="num"><col class="grp"><col class="name"><col class="vs"><col class="name">' +
     '</colgroup><thead><tr>' +
-      '<th class="tc">#</th><th>Grupo</th><th>Jugador 1</th><th class="tc">vs</th><th>Jugador 2</th><th class="tc">Resultado</th>' +
+      '<th class="tc">#</th><th>Grupo</th><th>Jugador 1</th><th class="tc">vs</th><th>Jugador 2</th>' +
     '</tr></thead><tbody>';
 
     var rowNum = 1;
@@ -2630,7 +2630,6 @@ function exportE3Partidos() {
           '<td>' + m.p1 + '</td>' +
           '<td class="tvs">vs</td>' +
           '<td>' + m.p2 + '</td>' +
-          '<td class="tres">___________</td>' +
         '</tr>';
       });
     });
