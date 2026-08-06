@@ -2496,130 +2496,158 @@ function e3QualyFillRound2Names(qualy) {
 
 function exportE3Partidos() {
   var CATS = [
-    {key:'A1', label:'CATEGORÍA A1'},
-    {key:'A2', label:'CATEGORÍA A2'},
-    {key:'B',  label:'CATEGORÍA B'},
+    {key:'A1', label:'Categoría A1'},
+    {key:'A2', label:'Categoría A2'},
+    {key:'B',  label:'Categoría B'},
   ];
   var allGroups = window.E3_GROUPS || E3_GROUPS;
   var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
 
   var css = [
     '*{box-sizing:border-box;margin:0;padding:0}',
-    'body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:11px;color:#1a1a2e;background:#fff;padding:24px 28px}',
-    '.page-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;border-bottom:3px solid #0D2B5E;padding-bottom:12px}',
-    '.page-title{font-size:18px;font-weight:700;color:#0D2B5E}',
-    '.page-sub{font-size:10px;color:#888;margin-top:3px}',
-    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600}',
-    '.cat-title{font-size:13px;font-weight:700;color:#1A56A0;margin:20px 0 10px;padding:6px 10px;background:#EEF4FB;border-left:4px solid #1A56A0;border-radius:3px}',
-    'table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:16px}',
-    'col.num{width:28px}col.grp{width:80px}col.p1{width:auto}col.vs{width:22px}col.p2{width:auto}col.res{width:110px}',
-    'thead tr{background:#0D2B5E}',
-    'thead th{color:white;font-size:9px;font-weight:600;padding:5px 7px;text-align:left;text-transform:uppercase;letter-spacing:.3px}',
-    'thead th.center{text-align:center}',
-    'tbody tr{border-bottom:1px solid #e8eef4}',
-    'tbody tr:nth-child(even){background:#f8fafc}',
-    'tbody td{padding:5px 7px;font-size:10px;vertical-align:middle}',
-    'td.num{color:#aaa;text-align:center;font-size:9px}',
-    'td.grp{color:#1A56A0;font-weight:600;font-size:9.5px}',
-    'td.vs{text-align:center;color:#ccc;font-size:9px}',
-    'td.res{color:#ccc;font-family:monospace;text-align:center}',
-    '.summary{margin-top:16px;padding:8px 12px;background:#f8fafc;border:1px solid #e0e8f0;border-radius:5px;font-size:10px;color:#555}',
-    '@media print{body{padding:12px 16px}.btn-print{display:none}tr{page-break-inside:avoid}.cat-title{page-break-before:auto}}'
+    'body{font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;font-size:14px;color:#1a1a2e;background:#fff;padding:28px 32px;line-height:1.5}',
+    '.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;border-bottom:3px solid #0D2B5E;padding-bottom:14px}',
+    '.page-title{font-size:22px;font-weight:700;color:#0D2B5E;letter-spacing:-.3px}',
+    '.page-sub{font-size:12px;color:#888;margin-top:4px}',
+    '.btn-print{background:#0D2B5E;color:white;border:none;padding:9px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;white-space:nowrap;margin-top:4px}',
+    /* Summary table */
+    '.summary-wrap{margin-bottom:24px}',
+    '.summary-table{width:100%;border-collapse:collapse;border:1px solid #dde6f0;border-radius:6px;overflow:hidden}',
+    '.summary-table thead tr{background:#0D2B5E}',
+    '.summary-table thead th{color:white;font-size:13px;font-weight:600;padding:10px 14px;text-align:center;text-transform:uppercase;letter-spacing:.4px}',
+    '.summary-table tbody td{padding:9px 14px;font-size:14px;text-align:center;border-bottom:1px solid #e8eef4}',
+    '.summary-table tbody tr:last-child td{border-bottom:none;font-weight:700;background:#e8f0fb;font-size:15px}',
+    '.summary-table td.cat-name{text-align:left;font-weight:600;color:#1A56A0;font-size:14px}',
+    '.summary-table tr:last-child td.cat-name{color:#0D2B5E}',
+    '.prog-bar{background:#e0e8f0;border-radius:4px;overflow:hidden;height:8px;width:80px;margin:0 auto 3px}',
+    '.prog-fill{background:#2e7d32;height:8px}',
+    '.prog-pct{font-size:11px;color:#666;text-align:center}',
+    /* Match tables */
+    '.cat-title{font-size:16px;font-weight:700;color:#1A56A0;margin:24px 0 10px;padding:8px 12px;background:#EEF4FB;border-left:5px solid #1A56A0;border-radius:0 4px 4px 0}',
+    '.match-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:16px}',
+    '.match-table colgroup col.num{width:34px}',
+    '.match-table colgroup col.grp{width:72px}',
+    '.match-table colgroup col.name{width:auto}',
+    '.match-table colgroup col.vs{width:30px}',
+    '.match-table colgroup col.res{width:80px}',
+    '.match-table thead tr{background:#0D2B5E}',
+    '.match-table thead th{color:white;font-size:12px;font-weight:600;padding:8px 10px;text-transform:uppercase;letter-spacing:.3px}',
+    '.match-table thead th.tc{text-align:center}',
+    '.match-table tbody tr{border-bottom:1px solid #e8eef4}',
+    '.match-table tbody tr:nth-child(even){background:#f8fafc}',
+    '.match-table tbody td{padding:7px 10px;font-size:13px;vertical-align:middle}',
+    'td.tc{text-align:center}',
+    'td.tnum{text-align:center;color:#999;font-size:12px}',
+    'td.tgrp{color:#1A56A0;font-weight:600}',
+    'td.tvs{text-align:center;color:#bbb;font-weight:700;font-size:12px}',
+    'td.tres{color:#ccc;font-family:monospace;text-align:center;letter-spacing:1px}',
+    '.footer-total{margin-top:20px;padding:10px 14px;background:#f0f4f8;border:1px solid #dde6f0;border-radius:6px;font-size:14px;font-weight:600;color:#0D2B5E;text-align:center}',
+    '@media print{body{padding:14px 18px;font-size:13px}.btn-print{display:none}tr{page-break-inside:avoid}.cat-title{page-break-before:auto;font-size:15px}.match-table tbody td{padding:6px 9px;font-size:12px}}'
   ].join('\n');
 
-  // Pre-calculate stats per category
+  // Stats per category
   var catStats = CATS.map(function(cat) {
     var groups = allGroups[cat.key] || [];
     var total = 0, done = 0, pending = 0;
     groups.forEach(function(g) {
       g.matches.forEach(function(m) {
         if (!m.p1 || !m.p2) return;
-        total++;
-        if (m.done) done++; else pending++;
+        total++; if (m.done) done++; else pending++;
       });
     });
-    return {key: cat.key, label: cat.label, total: total, done: done, pending: pending};
+    return {key:cat.key, label:cat.label, total:total, done:done, pending:pending};
   });
-  var grandDone = catStats.reduce(function(s,c){ return s+c.done; }, 0);
-  var grandPending = catStats.reduce(function(s,c){ return s+c.pending; }, 0);
-  var grandTotal2 = catStats.reduce(function(s,c){ return s+c.total; }, 0);
-  var grandPct = grandTotal2 > 0 ? Math.round(grandDone/grandTotal2*100) : 0;
+  var gDone    = catStats.reduce(function(s,c){return s+c.done;},0);
+  var gPending = catStats.reduce(function(s,c){return s+c.pending;},0);
+  var gTotal   = catStats.reduce(function(s,c){return s+c.total;},0);
+  var gPct     = gTotal>0 ? Math.round(gDone/gTotal*100) : 0;
 
-  var body = '<div class="page-header">' +
+  var body = '';
+
+  // Header
+  body += '<div class="page-header">' +
     '<div><div class="page-title">THE CHAMPIONSHIP 2026 — ETAPA 3</div>' +
     '<div class="page-sub">Fixture de partidos · ' + now + '</div></div>' +
     '<button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>' +
   '</div>';
 
-  // Summary table at top
-  body += '<table style="margin-bottom:20px;border:1px solid #dde6f0">' +
-    '<colgroup><col style="width:160px"><col style="width:80px"><col style="width:80px"><col style="width:80px"><col style="width:80px"></colgroup>' +
-    '<thead><tr>' +
-      '<th>Categoría</th>' +
-      '<th class="center">Total</th>' +
-      '<th class="center" style="color:#a8d5a2">Jugados</th>' +
-      '<th class="center" style="color:#f4a261">Pendientes</th>' +
-      '<th class="center">Avance</th>' +
-    '</tr></thead><tbody>';
+  // Summary table
+  body += '<div class="summary-wrap"><table class="summary-table"><thead><tr>' +
+    '<th style="text-align:left">Categoría</th>' +
+    '<th>Total</th><th>Jugados</th><th>Pendientes</th><th>Avance</th>' +
+  '</tr></thead><tbody>';
+
   catStats.forEach(function(c) {
-    var pct = c.total > 0 ? Math.round(c.done/c.total*100) : 0;
+    var pct = c.total>0 ? Math.round(c.done/c.total*100) : 0;
     body += '<tr>' +
-      '<td style="font-weight:600;color:#1A56A0">' + c.label + '</td>' +
-      '<td class="center" style="color:#555">' + c.total + '</td>' +
-      '<td class="center" style="color:#2e7d32;font-weight:600">' + c.done + '</td>' +
-      '<td class="center" style="color:' + (c.pending>0?'#c0392b':'#2e7d32') + ';font-weight:600">' + c.pending + '</td>' +
-      '<td class="center">' +
-        '<div style="background:#eee;border-radius:4px;overflow:hidden;height:8px;margin:2px 4px">' +
-          '<div style="background:#2e7d32;height:8px;width:' + pct + '%"></div>' +
-        '</div>' +
-        '<div style="font-size:9px;color:#888;text-align:center">' + pct + '%</div>' +
-      '</td>' +
+      '<td class="cat-name">' + c.label + '</td>' +
+      '<td>' + c.total + '</td>' +
+      '<td style="color:#2e7d32;font-weight:700">' + c.done + '</td>' +
+      '<td style="color:' + (c.pending>0?'#c0392b':'#2e7d32') + ';font-weight:700">' + c.pending + '</td>' +
+      '<td><div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%"></div></div>' +
+        '<div class="prog-pct">'+pct+'%</div></td>' +
     '</tr>';
   });
-  body += '<tr style="background:#f0f4f8;font-weight:700;border-top:2px solid #0D2B5E">' +
-    '<td style="color:#0D2B5E">TOTAL</td>' +
-    '<td class="center" style="color:#0D2B5E">' + grandTotal2 + '</td>' +
-    '<td class="center" style="color:#2e7d32">' + grandDone + '</td>' +
-    '<td class="center" style="color:' + (grandPending>0?'#c0392b':'#2e7d32') + '">' + grandPending + '</td>' +
-    '<td class="center" style="color:#0D2B5E">' + grandPct + '%</td>' +
-  '</tr></tbody></table>';
+  body += '<tr>' +
+    '<td class="cat-name">TOTAL</td>' +
+    '<td>' + gTotal + '</td>' +
+    '<td style="color:#2e7d32">' + gDone + '</td>' +
+    '<td style="color:' + (gPending>0?'#c0392b':'#2e7d32') + '">' + gPending + '</td>' +
+    '<td><div class="prog-bar"><div class="prog-fill" style="width:'+gPct+'%"></div></div>' +
+      '<div class="prog-pct">'+gPct+'%</div></td>' +
+  '</tr></tbody></table></div>';
 
+  // Pending matches by category
   var grandTotal = 0;
-
   CATS.forEach(function(cat) {
     var groups = allGroups[cat.key] || [];
     var pendingGroups = [];
     groups.forEach(function(g) {
       if (!g.players.length) return;
       var pending = g.matches.filter(function(m){ return !m.done && m.p1 && m.p2; });
-      if (pending.length) pendingGroups.push({group: g.group, matches: pending});
+      if (pending.length) pendingGroups.push({group:g.group, matches:pending});
     });
     if (!pendingGroups.length) return;
 
-    var catTotal = pendingGroups.reduce(function(s,g){ return s+g.matches.length; }, 0);
+    var catTotal = pendingGroups.reduce(function(s,g){return s+g.matches.length;},0);
     grandTotal += catTotal;
 
-    body += '<div class="cat-title">' + cat.label + ' — ' + catTotal + ' partido' + (catTotal!==1?'s':'') + ' pendiente' + (catTotal!==1?'s':'') + '</div>';
-    body += '<table><colgroup><col class="num"><col class="grp"><col class="p1"><col class="vs"><col class="p2"><col class="res"></colgroup>';
-    body += '<thead><tr><th class="center">#</th><th>Grupo</th><th>Jugador 1</th><th class="center">vs</th><th>Jugador 2</th><th class="center">Resultado</th></tr></thead><tbody>';
+    body += '<div class="cat-title">' + cat.label.toUpperCase() + ' — ' + catTotal +
+      ' partido' + (catTotal!==1?'s':'') + ' pendiente' + (catTotal!==1?'s':'') + '</div>';
+
+    body += '<table class="match-table"><colgroup>' +
+      '<col class="num"><col class="grp"><col class="name"><col class="vs"><col class="name"><col class="res">' +
+    '</colgroup><thead><tr>' +
+      '<th class="tc">#</th><th>Grupo</th><th>Jugador 1</th><th class="tc">vs</th><th>Jugador 2</th><th class="tc">Resultado</th>' +
+    '</tr></thead><tbody>';
+
     var rowNum = 1;
     pendingGroups.forEach(function(g) {
       g.matches.forEach(function(m) {
-        body += '<tr><td class="num">' + rowNum++ + '</td><td class="grp">Grupo ' + g.group + '</td>' +
-          '<td>' + m.p1 + '</td><td class="vs">vs</td><td>' + m.p2 + '</td>' +
-          '<td class="res">________________________</td></tr>';
+        body += '<tr>' +
+          '<td class="tnum">' + rowNum++ + '</td>' +
+          '<td class="tgrp">Grupo ' + g.group + '</td>' +
+          '<td>' + m.p1 + '</td>' +
+          '<td class="tvs">vs</td>' +
+          '<td>' + m.p2 + '</td>' +
+          '<td class="tres">___________</td>' +
+        '</tr>';
       });
     });
     body += '</tbody></table>';
   });
 
-  body += '<div class="summary">Total partidos pendientes Etapa 3: <strong>' + grandTotal + '</strong></div>';
+  body += '<div class="footer-total">Total partidos pendientes Etapa 3: ' + grandTotal + '</div>';
 
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Fixture Etapa 3</title><style>' + css + '</style></head><body>' + body + '</body></html>';
-  var w = window.open('','_blank','width=860,height=960');
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+    '<title>Fixture Etapa 3 — The Championship 2026</title>' +
+    '<style>' + css + '</style></head><body>' + body + '</body></html>';
+
+  var w = window.open('','_blank','width=900,height=980');
   if (w) { w.document.write(html); w.document.close(); w.focus(); }
   else showToast('Permitir pop-ups para ver el reporte');
 }
+
 
 function renderEtapa3Qualy() {
   var el = document.getElementById('main');
