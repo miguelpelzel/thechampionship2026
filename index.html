@@ -328,6 +328,15 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 }
               }
             }
+            // Re-render E3 views if currently open
+            if (changed) {
+              if (view==='etapa3') {
+                try {
+                  if (e3View==='posiciones') renderEtapa3Posiciones();
+                  else if (e3View==='partidos') renderEtapa3Partidos();
+                } catch(e) {}
+              }
+            }
             return;
           }
           // ── E3 Qualy matches ─────────────────────────────────────────────
@@ -345,6 +354,10 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                   m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
                 }
               }
+            }
+            // Re-render Qualy view if open
+            if (changed && view==='etapa3' && e3View==='qualy') {
+              try { renderEtapa3Qualy(); } catch(e) {}
             }
             return;
           }
@@ -3463,14 +3476,14 @@ function _hideSplash() {
 }
 function _waitAndHide() {
   if (window._splashImgLoaded) {
-    setTimeout(_hideSplash, 2000);
+    setTimeout(_hideSplash, 800);
   } else {
     setTimeout(_waitAndHide, 100); // check every 100ms
   }
 }
 // Start checking, but hard cap at 4 seconds total
 _waitAndHide();
-setTimeout(_hideSplash, 4000); // failsafe
+setTimeout(_hideSplash, 2500); // failsafe
 
 for (const key of Object.keys(CUP_STATE)) {
   propagateAllTBD(CUP_STATE[key].matches);
