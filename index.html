@@ -2182,7 +2182,10 @@ function renderEtapa3Grupos() {
   }
 
   el.innerHTML = catTabs +
-    '<div class="round-nav">' + grpPills + '</div>' +
+    '<div class="round-nav" style="display:flex;justify-content:space-between;align-items:center">' +
+      '<div style="display:flex;gap:6px;flex:1;overflow-x:auto">' + grpPills + '</div>' +
+      (isAdmin ? '<button onclick="exportE3PosicionesExcel()" style="flex-shrink:0;margin-left:8px;margin-right:1rem;background:#217346;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">📊 Excel</button>' : '') +
+    '</div>' +
     '<div class="draw-content">' + html + '</div>';
 }
 
@@ -2360,6 +2363,78 @@ function renderEtapa3Partidos() {
     '</div>' + html;
 }
 
+function exportE3PosicionesExcel() {
+  var CATS = [
+    {key:'A1', label:'Categoría A1'},
+    {key:'A2', label:'Categoría A2'},
+    {key:'B',  label:'Categoría B'},
+  ];
+  var allGroups = window.E3_GROUPS || E3_GROUPS;
+
+  // Load SheetJS dynamically if not already loaded
+  function doExport() {
+    var XLSX = window.XLSX;
+    if (!XLSX) { showToast('Error cargando SheetJS'); return; }
+
+    var wb = XLSX.utils.book_new();
+
+    CATS.forEach(function(cat) {
+      var groups = allGroups[cat.key] || [];
+      var allRows = [['Grupo', 'Pos', 'Jugador', 'PJ', 'V', 'D', 'Dif Games', 'Pts']];
+
+      groups.forEach(function(g) {
+        if (!g.players.length) return;
+        var standings = calcE3GroupStandings(g);
+        standings.forEach(function(s, i) {
+          allRows.push([
+            'Grupo ' + g.group,
+            i + 1,
+            s.name,
+            s.pj,
+            s.w,
+            s.l,
+            s.gamesDiff > 0 ? '+' + s.gamesDiff : s.gamesDiff,
+            s.pts
+          ]);
+        });
+        allRows.push([]); // blank row between groups
+      });
+
+      var ws = XLSX.utils.aoa_to_sheet(allRows);
+
+      // Column widths
+      ws['!cols'] = [
+        {wch:10},{wch:5},{wch:28},{wch:5},{wch:5},{wch:5},{wch:11},{wch:6}
+      ];
+
+      // Style header row
+      var range = XLSX.utils.decode_range(ws['!ref']);
+      for (var C = range.s.c; C <= range.e.c; C++) {
+        var addr = XLSX.utils.encode_cell({r:0, c:C});
+        if (!ws[addr]) continue;
+        ws[addr].s = {font:{bold:true}, fill:{fgColor:{rgb:'0D2B5E'}}, alignment:{horizontal:'center'}};
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws, cat.label.replace('Categoría ','Cat '));
+    });
+
+    var now = new Date();
+    var fecha = now.getDate() + '-' + (now.getMonth()+1) + '-' + now.getFullYear();
+    XLSX.writeFile(wb, 'Posiciones_E3_' + fecha + '.xlsx');
+    showToast('✓ Excel descargado');
+  }
+
+  if (window.XLSX) {
+    doExport();
+  } else {
+    var script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = doExport;
+    script.onerror = function(){ showToast('Error: no se pudo cargar SheetJS'); };
+    document.head.appendChild(script);
+  }
+}
+
 function calcE3GroupStandings(group) {
   // Returns array of {name, pj, w, l, gamesWon, gamesLost, gamesDiff, pts}
   // Points system (same as Etapa 2):
@@ -2526,21 +2601,19 @@ function exportE3Partidos() {
     '.cat-title{font-size:16px;font-weight:700;color:#1A56A0;margin:24px 0 10px;padding:8px 12px;background:#EEF4FB;border-left:5px solid #1A56A0;border-radius:0 4px 4px 0}',
     '.match-table{width:100%;border-collapse:collapse;table-layout:fixed;margin-bottom:16px}',
     '.match-table colgroup col.num{width:34px}',
-    '.match-table colgroup col.grp{width:72px}',
+    '.match-table colgroup col.grp{width:95px}',
     '.match-table colgroup col.name{width:auto}',
-    '.match-table colgroup col.vs{width:30px}',
-    '.match-table colgroup col.res{width:80px}',
+    '.match-table colgroup col.vs{width:32px}',
     '.match-table thead tr{background:#0D2B5E}',
-    '.match-table thead th{color:white;font-size:12px;font-weight:600;padding:8px 10px;text-transform:uppercase;letter-spacing:.3px}',
+    '.match-table thead th{color:white;font-size:14px;font-weight:600;padding:7px 10px;text-transform:uppercase;letter-spacing:.3px}',
     '.match-table thead th.tc{text-align:center}',
     '.match-table tbody tr{border-bottom:1px solid #e8eef4}',
     '.match-table tbody tr:nth-child(even){background:#f8fafc}',
-    '.match-table tbody td{padding:7px 10px;font-size:13px;vertical-align:middle}',
+    '.match-table tbody td{padding:4px 10px;font-size:15px;vertical-align:middle}',
     'td.tc{text-align:center}',
-    'td.tnum{text-align:center;color:#999;font-size:12px}',
-    'td.tgrp{color:#1A56A0;font-weight:600}',
-    'td.tvs{text-align:center;color:#bbb;font-weight:700;font-size:12px}',
-    'td.tres{color:#ccc;font-family:monospace;text-align:center;letter-spacing:1px}',
+    'td.tnum{text-align:center;color:#999;font-size:13px}',
+    'td.tgrp{color:#1A56A0;font-weight:600;white-space:nowrap}',
+    'td.tvs{text-align:center;color:#bbb;font-weight:700;font-size:13px}',
     '.footer-total{margin-top:20px;padding:10px 14px;background:#f0f4f8;border:1px solid #dde6f0;border-radius:6px;font-size:14px;font-weight:600;color:#0D2B5E;text-align:center}',
     '@media print{body{padding:14px 18px;font-size:13px}.btn-print{display:none}tr{page-break-inside:avoid}.cat-title{page-break-before:auto;font-size:15px}.match-table tbody td{padding:6px 9px;font-size:12px}}'
   ].join('\n');
