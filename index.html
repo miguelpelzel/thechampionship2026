@@ -1114,6 +1114,28 @@ function getAllPlayerMatches(name) {
         instancia:'2da Ronda', p1:np1, p2:np2, score:m.score, winner:nw});
     });
   }
+  // Etapa 3 Copas
+  const e3cups = window.E3_CUPS || (typeof E3_CUPS !== 'undefined' ? E3_CUPS : null);
+  const cupLabels3 = {
+    'e3_catA_oro':'Copa Oro Cat. A', 'e3_catA_plata':'Copa Plata Cat. A',
+    'e3_catB_oro':'Copa Oro Cat. B', 'e3_catB_plata':'Copa Plata Cat. B'
+  };
+  const roundLabels3 = {
+    '16vos':'16vos de Final','8vos':'Octavos de Final',
+    '4tos':'Cuartos de Final','Semis':'Semifinales','Final':'Final'
+  };
+  if (e3cups) {
+    Object.entries(e3cups).forEach(([key, cup]) => {
+      cup.matches.forEach(m => {
+        if (!m.done || !m.score || m.score==='BYE' || m.score==='NJ') return;
+        if (m.p1 !== name && m.p2 !== name) return;
+        if (!m.p1 || !m.p2 || m.p1==='Por definir' || m.p2==='Por definir') return;
+        allMatches.push({year:2026, etapa:3, fase:cupLabels3[key]||'Copa E3',
+          instancia:roundLabels3[m.round]||m.round, p1:m.p1, p2:m.p2,
+          score:m.score, winner:m.winner});
+      });
+    });
+  }
   allMatches.sort((a,b) => b.year-a.year || b.etapa-a.etapa);
   return allMatches;
 }
@@ -2705,7 +2727,7 @@ function renderEtapa3Copas() {
   var pend = total - done;
   var pendColor = pend > 0 ? 'var(--orange)' : 'var(--green)';
 
-  var pdfBtn = isAdmin ? '<button onclick="downloadE3CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer">⬇ PDF</button>' : '';
+  var pdfBtn = '<button onclick="downloadE3CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer">⬇ PDF</button>';
 
   var heroHtml = '<div class="cup-hero">' +
     '<div class="cup-hero-top"><div class="cup-hero-title" style="color:'+accent+'">' + (isOro?'🏆':'🥈') + ' ' + cup.label + '</div>' +
@@ -2879,8 +2901,88 @@ function rebuildE3Cup(cupKey) {
 }
 
 function downloadE3CuadrosPDF() {
-  // Uses the same bracket preview as E2 but for E3 cups
-  showToast('Función en desarrollo');
+  var cups = window.E3_CUPS || E3_CUPS;
+  var cupKey = e3CurrentCup;
+  var cup = cups[cupKey];
+  if (!cup) return;
+
+  var isOro = cup.type === 'oro';
+  var accent = isOro ? '#8B6914' : '#4A6080';
+  var accentLight = isOro ? '#FFF8E8' : '#EEF2F8';
+  var ROUNDS = ['16vos','8vos','4tos','Semis','Final'];
+  var ROUND_LABELS = {'16vos':'16vos de Final','8vos':'Octavos de Final','4tos':'Cuartos de Final','Semis':'Semifinales','Final':'FINAL'};
+  var byRound = {};
+  cup.matches.forEach(function(m) { (byRound[m.round] = byRound[m.round]||[]).push(m); });
+
+  var css = [
+    '*{box-sizing:border-box;margin:0;padding:0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}',
+    'body{background:#f5f5f5;padding:20px}',
+    '.page{background:white;max-width:1100px;margin:0 auto;padding:24px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}',
+    '.header{border-bottom:3px solid '+accent+';padding-bottom:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end}',
+    '.header-title{font-size:20px;font-weight:700;color:#0D2B5E}',
+    '.header-sub{font-size:13px;color:#888;margin-top:3px}',
+    '.cup-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;background:'+accent+';color:white}',
+    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600}',
+    '.bracket{display:flex;gap:0;overflow-x:auto;padding-bottom:10px}',
+    '.round-col{display:flex;flex-direction:column;min-width:180px}',
+    '.round-header{text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:white;background:'+accent+';padding:6px 4px;letter-spacing:.5px;border-radius:4px 4px 0 0;margin:0 4px 0}',
+    '.round-matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:4px}',
+    '.match{border:1px solid #dde6f0;border-radius:5px;overflow:hidden;margin:3px 2px;background:white;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
+    '.player{padding:5px 8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;min-height:28px}',
+    '.player:last-child{border-bottom:none}',
+    '.player.winner{background:'+accentLight+';font-weight:700}',
+    '.player.tbd{color:#bbb;font-style:italic}',
+    '.score{font-size:10px;color:#666;font-family:monospace;white-space:nowrap;margin-left:6px}',
+    '.match-connector{width:12px;border-top:1px solid #ccc;align-self:center}',
+    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0}.btn-print{display:none}}'
+  ].join('\n');
+
+  var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  var body = '<div class="page">';
+  body += '<div class="header">' +
+    '<div><div class="header-title">THE CHAMPIONSHIP 2026 — ETAPA 3</div>' +
+    '<div class="header-sub">' + cup.label + ' · ' + now + '</div></div>' +
+    '<div style="display:flex;gap:10px;align-items:center">' +
+    '<span class="cup-badge">' + (isOro?'🏆 Copa de Oro':'🥈 Copa de Plata') + '</span>' +
+    '<button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button></div>' +
+  '</div>';
+
+  body += '<div class="bracket">';
+  ROUNDS.forEach(function(r) {
+    if (!byRound[r]) return;
+    var ms = byRound[r].filter(function(m){ return m.score !== 'BYE'; });
+    if (!ms.length) return;
+    body += '<div class="round-col">';
+    body += '<div class="round-header">' + (ROUND_LABELS[r]||r) + '</div>';
+    body += '<div class="round-matches">';
+    ms.forEach(function(m) {
+      var p = (m.done && !isWO(m.score)) ? parseScore(m.score) : null;
+      var w = p ? p.winner : (isWO(m.score) ? (m.winner===m.p1?1:2) : null);
+      var p1cls = m.done ? (w===1?'winner':'') : ((!m.p1||m.p1==='Por definir')?'tbd':'');
+      var p2cls = m.done ? (w===2?'winner':'') : ((!m.p2||m.p2==='Por definir')?'tbd':'');
+      var p1name = (!m.p1||m.p1==='Por definir') ? 'Por definir' : m.p1;
+      var p2name = (!m.p2||m.p2==='Por definir') ? 'Por definir' : m.p2;
+      var score1='', score2='';
+      if (p && p.sets) {
+        score1 = p.sets.map(function(s){ return s.a; }).join(' ');
+        score2 = p.sets.map(function(s){ return s.b; }).join(' ');
+      } else if (isWO(m.score)) {
+        if (w===1) score2='W.O.'; else score1='W.O.';
+      }
+      body += '<div class="match">' +
+        '<div class="player ' + p1cls + '"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p1name + '</span><span class="score">' + score1 + '</span></div>' +
+        '<div class="player ' + p2cls + '"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + p2name + '</span><span class="score">' + score2 + '</span></div>' +
+      '</div>';
+    });
+    body += '</div></div>';
+  });
+  body += '</div></div>';
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + cup.label + '</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+  var win = window.open('','_blank','width=1150,height=820');
+  if (win) { win.document.write(html); win.document.close(); win.focus(); }
+  else showToast('Permitir pop-ups para ver el PDF');
 }
 
 function exportE3Partidos() {
