@@ -1,4 +1,5 @@
-const CACHE_VERSION = 'championship-v197';
+const CACHE_VERSION = 'championship-v198';
+const BUILD_TIME = '2026-08-19T18:00:00Z';
 
 // Forzar activación inmediata sin esperar
 self.addEventListener('install', e => {
@@ -10,18 +11,16 @@ self.addEventListener('activate', e => {
     caches.keys()
       .then(keys => Promise.all(keys.map(k => caches.delete(k))))
       .then(() => self.clients.claim())
-      .then(() => {
-        // Notificar a todos los clientes que recarguen
-        return self.clients.matchAll({ type: 'window' });
-      })
+      .then(() => self.clients.matchAll({ type: 'window' }))
       .then(clients => clients.forEach(c => c.navigate(c.url)))
   );
 });
 
-// Network first — nunca sirve desde caché si hay red
+// Network only — nunca usa caché, siempre va a la red
 self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request, { cache: 'no-store' })
-      .catch(() => caches.match(e.request))
+    fetch(e.request, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+      .catch(() => fetch(e.request))
   );
 });
