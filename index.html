@@ -361,6 +361,30 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
             }
             return;
           }
+          // ── E3 Cup matches ────────────────────────────────────────────────
+          const e3CupKeys = ['e3_catA_oro','e3_catA_plata','e3_catB_oro','e3_catB_plata'];
+          if (e3CupKeys.includes(d.cupKey)) {
+            const cups = window.E3_CUPS;
+            const cup = cups && cups[d.cupKey];
+            const m = cup && cup.matches.find(x=>x.id===d.matchId);
+            if (m) {
+              if (d.score==='__deleted__') {
+                if (m.done && m.score!=='BYE') {
+                  m.score=''; m.done=false; m.winner=null; changed=true;
+                  try { rebuildE3Cup(d.cupKey); } catch(e) {}
+                }
+              } else if (d.score && d.score.trim()) {
+                if (!m.done || m.score!==d.score || m.winner!==d.winner) {
+                  m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
+                  if (d.score!=='BYE'&&d.score!=='NJ') try { propagateE3Cup(d.cupKey, m); } catch(e) {}
+                }
+              }
+            }
+            if (changed && view==='etapa3' && e3View==='copas') {
+              try { renderEtapa3Copas(); } catch(e) {}
+            }
+            return;
+          }
         });
         // Re-render only what's needed, never force navigation
         // After processing all Firebase docs, rebuild propagation from scratch
@@ -468,6 +492,7 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     <button class="bn-item"        id="e3bn-partidos"   onclick="e3NavView('partidos')">   <span class="bn-icon">🎾</span><span class="bn-label">Partidos</span></button>
     <button class="bn-item"        id="e3bn-posiciones" onclick="e3NavView('posiciones')"> <span class="bn-icon">📋</span><span class="bn-label">Posiciones</span></button>
     <button class="bn-item"        id="e3bn-qualy"      onclick="e3NavView('qualy')">      <span class="bn-icon">🎯</span><span class="bn-label">Qualy</span></button>
+    <button class="bn-item"        id="e3bn-copas"      onclick="e3NavView('copas')">      <span class="bn-icon">🏆</span><span class="bn-label">Copas</span></button>
     <button class="bn-item"        id="e3bn-back"       onclick="goHome()">                <span class="bn-icon">🏠</span><span class="bn-label">Inicio</span></button>
   </nav>
 </div>
@@ -1733,9 +1758,54 @@ const RANKING_PTS = {
   '32vos':     {oro:30,   plata:10},
 };
 
+function getE3CupPhaseAndPts(name) {
+  // Returns {pts, label} for a player in E3 cups
+  const cups = window.E3_CUPS || (typeof E3_CUPS !== 'undefined' ? E3_CUPS : null);
+  if (!cups) return {pts:0, label:''};
+  const cupMap = {e3_catA_oro:'oro', e3_catA_plata:'plata', e3_catB_oro:'oro', e3_catB_plata:'plata'};
+  const ORDER = ['16vos','8vos','4tos','Semis','Final'];
+  let totalPts = 0, bestLabel = '';
+  Object.entries(cups).forEach(([key, cup]) => {
+    const type = cupMap[key]; if (!type) return;
+    const allMatches = cup.matches.filter(m => !isBYE(m.score) && m.score !== 'BYE');
+    let bestRound = null, lostRound = null;
+    allMatches.forEach(m => {
+      if (m.p1 !== name && m.p2 !== name) return;
+      if (!m.done) return;
+      const idx = ORDER.indexOf(m.round);
+      if (idx >= ORDER.indexOf(bestRound)) {
+        bestRound = m.round;
+        if (m.winner !== name) lostRound = m.round;
+      }
+    });
+    if (!bestRound) return;
+    let label;
+    if (lostRound) {
+      label = lostRound === 'Final' ? 'Finalista' : lostRound;
+    } else {
+      let bestWon = null;
+      allMatches.forEach(m => {
+        if (!m.done || m.winner !== name) return;
+        if (ORDER.indexOf(m.round) > ORDER.indexOf(bestWon)) bestWon = m.round;
+      });
+      if (!bestWon) return;
+      const nextIdx = ORDER.indexOf(bestWon) + 1;
+      label = ORDER[nextIdx] || 'Campeón';
+      if (label === 'Final') label = 'Semis';
+    }
+    allMatches.forEach(m => { if (m.round==='Final' && m.done && m.winner===name) label='Campeón'; });
+    const ptRow = RANKING_PTS[label];
+    if (ptRow) {
+      totalPts += ptRow[type] || 0;
+      if (!bestLabel || ORDER.indexOf(label) > ORDER.indexOf(bestLabel)) bestLabel = label;
+    }
+  });
+  return {pts: totalPts, label: bestLabel};
+}
+
 function getPlayerRankingPts(name, etapa) {
-  // Etapa 1: uses CUP_STATE (catA_oro, catA_plata, catB_oro, catB_plata)
-  // Future etapas: add their CUP_STATE equivalent here
+  // Etapa 1: uses CUP_STATE; Etapa 3: uses E3_CUPS
+  if (etapa === 3) return getE3CupPhaseAndPts(name).pts;
   const cupStateForEtapa = etapa === 1 ? CUP_STATE : null;
   if (!cupStateForEtapa) return 0;
 
@@ -1986,8 +2056,10 @@ function renderRanking() {
         const e1round = getBestRound(name, cupKeys);
         const e2pts = calcE2Pts(name, category);
         const e2round = getE2BestRound(name, category);
-        const e3=0, e4=0;
-        return {name, e1pts, e1round, e2pts, e2round, e3, e4, total: e1pts+e2pts+e3+e4};
+        const e3data = getE3CupPhaseAndPts(name);
+        const e3pts = e3data.pts; const e3round = e3data.label;
+        const e4=0;
+        return {name, e1pts, e1round, e2pts, e2round, e3pts, e3round, e4, total: e1pts+e2pts+e3pts+e4};
       })
       .filter(p => p.total > 0)
       .sort((a,b) => b.total - a.total);
@@ -1996,7 +2068,7 @@ function renderRanking() {
 
     // Scrollable table
     const header = `
-      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:520px">
+      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 90px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:520px">
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">#</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted)">JUGADOR</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--blue);text-align:center">TOTAL</div>
@@ -2009,7 +2081,7 @@ function renderRanking() {
       </div>`;
 
     const fmt = v => v > 0 ? v : '-';
-    const rowsHtml = rows.map(({name,e1pts,e1round,e2pts,e2round,e3,e4,total},i) => {
+    const rowsHtml = rows.map(({name,e1pts,e1round,e2pts,e2round,e3pts,e3round,e4,total},i) => {
       const bg = i%2===0?'#fafbfc':'white';
       // Build phase display: e.g. "Final Oro / 8vos Plata"
       const phaseHtml = (e1round||[]).map(r =>
@@ -2018,7 +2090,7 @@ function renderRanking() {
       const e2PhaseHtml = (e2round||[]).map(r =>
         `<div style="font-size:.6rem;white-space:nowrap">${SHORT[r.label]||r.label} <span style="color:${r.cupType==='Oro'?'#b8860b':'#607d8b'};font-weight:600">${r.cupType}</span></div>`
       ).join('') || '<div style="font-size:.68rem;color:var(--muted)">-</div>';
-      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:520px">
+      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 90px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:520px">
         <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-align:center">${i+1}</div>
         <div style="font-size:.82rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}</div>
         <div style="font-size:.85rem;font-weight:700;color:var(--blue);text-align:center">${total}</div>
@@ -2122,6 +2194,21 @@ window.E3_GROUPS = E3_GROUPS;
 const E3_QUALY_A={"round1":[{"id":"q1_1","p1":"Gustavo Bornhoffer","p2":"Ignacio Fourmane","score":"","done":false,"winner":null},{"id":"q1_2","p1":"Mario Esposto","p2":"Wilfredo Bunge","score":"","done":false,"winner":null},{"id":"q1_3","p1":"Alejandro Lammertyn","p2":"Fabian Riet","score":"","done":false,"winner":null},{"id":"q1_4","p1":"Fernando Muxi","p2":"Gustavo Sánchez","score":"","done":false,"winner":null},{"id":"q1_5","p1":"Ricardo Szyfer","p2":"Javier Vigo","score":"","done":false,"winner":null},{"id":"q1_6","p1":"Enrique Cao","p2":"Jerónimo Acosta","score":"","done":false,"winner":null},{"id":"q1_7","p1":"Alfredo Guelfi","p2":"Ruben Piperno","score":"","done":false,"winner":null},{"id":"q1_8","p1":"Agustín Falco","p2":"Santiago Tolomei","score":"","done":false,"winner":null},{"id":"q1_9","p1":"Walter Zeinal","p2":"Agustin Stremmler","score":"","done":false,"winner":null},{"id":"q1_10","p1":"Luis Pedro Sáenz","p2":"Agustín Pereira Brause","score":"","done":false,"winner":null},{"id":"q1_11","p1":"Juan Pérez del Castillo","p2":"Martin Sorrosal","score":"","done":false,"winner":null},{"id":"q1_12","p1":"Enrique Hanania","p2":"Juan Pablo Eiroa","score":"","done":false,"winner":null},{"id":"q1_13","p1":"Matías Yelin","p2":"Alejandro Coll","score":"","done":false,"winner":null},{"id":"q1_14","p1":"Gustavo Blanco","p2":"Olivier Chetanneau","score":"","done":false,"winner":null},{"id":"q1_15","p1":"Fernando Hareau","p2":"Nelson Russo","score":"","done":false,"winner":null},{"id":"q1_16","p1":"Mariano Lotito","p2":"Diego Carranza","score":"4-6 3-6","done":true,"winner":"Diego Carranza"}],"round2":[{"id":"q2_1","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_1","from2":"q1_2"},{"id":"q2_2","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_3","from2":"q1_4"},{"id":"q2_3","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_5","from2":"q1_6"},{"id":"q2_4","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_7","from2":"q1_8"},{"id":"q2_5","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_9","from2":"q1_10"},{"id":"q2_6","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_11","from2":"q1_12"},{"id":"q2_7","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_13","from2":"q1_14"},{"id":"q2_8","p1":"","p2":"","score":"","done":false,"winner":null,"from1":"q1_15","from2":"q1_16"}]};
 window.E3_QUALY_A = E3_QUALY_A;
 
+// ── ETAPA 3 COPAS ──────────────────────────────────────────────────────────────
+const E3_CUPS={"e3_catA_oro":{"label":"Cat. A — Copa de Oro","type":"oro","matches":[{"id":"16vos_1","round":"16vos","p1":"Santiago Carbajal","p2":"Luis Ignacio Gomensoro","score":"","done":false,"winner":null},{"id":"16vos_2","round":"16vos","p1":"Alejo Matos","p2":"Juan Bartesaghi","score":"","done":false,"winner":null},{"id":"16vos_3","round":"16vos","p1":"Joaquín Arretche","p2":"Martín Slinger","score":"","done":false,"winner":null},{"id":"16vos_4","round":"16vos","p1":"Francisco Rubio","p2":"Facundo Rivera","score":"","done":false,"winner":null},{"id":"16vos_5","round":"16vos","p1":"Ignacio Erausquin","p2":"Luis Bordaberry","score":"","done":false,"winner":null},{"id":"16vos_6","round":"16vos","p1":"Francisco Natteri","p2":"Gustavo Voituret","score":"","done":false,"winner":null},{"id":"16vos_7","round":"16vos","p1":"Gustavo Blanco","p2":"Juan Miguel Álvarez","score":"","done":false,"winner":null},{"id":"16vos_8","round":"16vos","p1":"Miguel Pelzel","p2":"Uriel Rosenfeld","score":"","done":false,"winner":null},{"id":"16vos_9","round":"16vos","p1":"Alejandro Deal","p2":"Alvaro Kaminietzky","score":"","done":false,"winner":null},{"id":"16vos_10","round":"16vos","p1":"Gadiel Temkin","p2":"Gustavo Bornhoffer","score":"","done":false,"winner":null},{"id":"16vos_11","round":"16vos","p1":"Gonzalo Parada","p2":"Agustín Novegil","score":"","done":false,"winner":null},{"id":"16vos_12","round":"16vos","p1":"Diego Albanell","p2":"Marcelo Serra","score":"","done":false,"winner":null},{"id":"16vos_13","round":"16vos","p1":"Juan Martín Bauzá","p2":"Diego Carranza","score":"","done":false,"winner":null},{"id":"16vos_14","round":"16vos","p1":"Jerónimo Acosta","p2":"Maximiliano Cambón","score":"","done":false,"winner":null},{"id":"16vos_15","round":"16vos","p1":"Rafael Gomensoro","p2":"Mateo Sallés","score":"","done":false,"winner":null},{"id":"16vos_16","round":"16vos","p1":"Horacio Roig","p2":"Román Navarro","score":"","done":false,"winner":null},{"id":"8vos_1","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_2","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_3","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_4","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_5","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_6","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_7","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_8","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_1","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_2","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_3","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_4","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_1","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_2","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Final_1","round":"Final","p1":"","p2":"","score":"","done":false,"winner":null}]},"e3_catA_plata":{"label":"Cat. A — Copa de Plata","type":"plata","matches":[{"id":"16vos_1","round":"16vos","p1":"Martín Matos","p2":"Agustín Pereira Brause","score":"","done":false,"winner":null},{"id":"16vos_2","round":"16vos","p1":"Timoteo Acosta","p2":"Ricardo Szyfer","score":"","done":false,"winner":null},{"id":"16vos_3","round":"16vos","p1":"Ignacio Medoc","p2":"Juan Pablo Eiroa","score":"","done":false,"winner":null},{"id":"16vos_4","round":"16vos","p1":"Gustavo Sánchez","p2":"Agustín Falco","score":"","done":false,"winner":null},{"id":"16vos_5","round":"16vos","p1":"Alejandro Young","p2":"Alejandro Lammertyn","score":"","done":false,"winner":null},{"id":"16vos_6","round":"16vos","p1":"Santiago Tolomei","p2":"Juan Pérez del Castillo","score":"","done":false,"winner":null},{"id":"16vos_7","round":"16vos","p1":"Walter Zeinal","p2":"Martin Sorrosal","score":"","done":false,"winner":null},{"id":"16vos_8","round":"16vos","p1":"Javier Inciarte","p2":"Bernardo Mangarelli","score":"","done":false,"winner":null},{"id":"16vos_9","round":"16vos","p1":"Fabián Riet","p2":"Agustin Stremmler","score":"","done":false,"winner":null},{"id":"16vos_10","round":"16vos","p1":"Ignacio Fourmane","p2":"Nicolás Rubio","score":"","done":false,"winner":null},{"id":"16vos_11","round":"16vos","p1":"Marcelo Lasowski","p2":"Benjamín Carbajal","score":"","done":false,"winner":null},{"id":"16vos_12","round":"16vos","p1":"Nelson Russo","p2":"Felipe Goyenola","score":"","done":false,"winner":null},{"id":"16vos_13","round":"16vos","p1":"Santiago Bazzurro","p2":"Javier Vigo","score":"","done":false,"winner":null},{"id":"16vos_14","round":"16vos","p1":"Alejandro Coll","p2":"Wilfredo Bunge","score":"","done":false,"winner":null},{"id":"16vos_15","round":"16vos","p1":"Ruben Piperno","p2":"Alfredo Guelfi","score":"","done":false,"winner":null},{"id":"16vos_16","round":"16vos","p1":"Fernando Muxi","p2":"Andrés Duffour","score":"","done":false,"winner":null},{"id":"8vos_1","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_2","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_3","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_4","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_5","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_6","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_7","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_8","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_1","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_2","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_3","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_4","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_1","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_2","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Final_1","round":"Final","p1":"","p2":"","score":"","done":false,"winner":null}]},"e3_catB_oro":{"label":"Cat. B — Copa de Oro","type":"oro","matches":[{"id":"16vos_1","round":"16vos","p1":"Adrián Darias","p2":"Francisco Curone","score":"","done":false,"winner":null},{"id":"16vos_2","round":"16vos","p1":"Guillermo Altmann","p2":"Richard Felce","score":"","done":false,"winner":null},{"id":"16vos_3","round":"16vos","p1":"Andrés Durán","p2":"Martín Di Marco","score":"","done":false,"winner":null},{"id":"16vos_4","round":"16vos","p1":"Mariano Lotito","p2":"Peter Buchner","score":"","done":false,"winner":null},{"id":"16vos_5","round":"16vos","p1":"Luis Francolino","p2":"Enrique Hanania","score":"","done":false,"winner":null},{"id":"16vos_6","round":"16vos","p1":"Marcos Ingold","p2":"Manuel Reboiras","score":"","done":false,"winner":null},{"id":"16vos_7","round":"16vos","p1":"Manuel Mendive","p2":"Fernando Burgueño","score":"","done":false,"winner":null},{"id":"16vos_8","round":"16vos","p1":"Fernando Hareau","p2":"Fernando de la Fuente","score":"","done":false,"winner":null},{"id":"16vos_9","round":"16vos","p1":"Adrián Margoniner","p2":"Olivier Chetanneau","score":"","done":false,"winner":null},{"id":"16vos_10","round":"16vos","p1":"Marcelo Kaplan","p2":"Matias Burgos","score":"","done":false,"winner":null},{"id":"16vos_11","round":"16vos","p1":"Gastón Silveira","p2":"Ignacio Massat","score":"","done":false,"winner":null},{"id":"16vos_12","round":"16vos","p1":"Ignacio Diez","p2":"Ignacio Platero","score":"","done":false,"winner":null},{"id":"16vos_13","round":"16vos","p1":"Ignacio Ferrés","p2":"Mario Esposto","score":"","done":false,"winner":null},{"id":"16vos_14","round":"16vos","p1":"Agustín Matos","p2":"Alfredo Cat","score":"","done":false,"winner":null},{"id":"16vos_15","round":"16vos","p1":"Juan Ignacio Ron","p2":"Rodrigo Guerra","score":"","done":false,"winner":null},{"id":"16vos_16","round":"16vos","p1":"Mauricio Fernández","p2":"Fernando Foti","score":"","done":false,"winner":null},{"id":"8vos_1","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_2","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_3","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_4","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_5","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_6","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_7","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_8","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_1","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_2","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_3","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_4","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_1","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_2","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Final_1","round":"Final","p1":"","p2":"","score":"","done":false,"winner":null}]},"e3_catB_plata":{"label":"Cat. B — Copa de Plata","type":"plata","matches":[{"id":"16vos_1","round":"16vos","p1":"Luis Pedro Sáenz","p2":"BYE","score":"BYE","done":true,"winner":"Luis Pedro Sáenz"},{"id":"16vos_2","round":"16vos","p1":"Luis Zeballos","p2":"Facundo De Souza","score":"","done":false,"winner":null},{"id":"16vos_3","round":"16vos","p1":"Pablo Milburn","p2":"Philip Umpierre","score":"","done":false,"winner":null},{"id":"16vos_4","round":"16vos","p1":"Juan Diego Boix","p2":"Nicolás Sáez","score":"","done":false,"winner":null},{"id":"16vos_5","round":"16vos","p1":"Diego Scasso","p2":"BYE","score":"BYE","done":true,"winner":"Diego Scasso"},{"id":"16vos_6","round":"16vos","p1":"Marcos Villanueva","p2":"Federico Sassi","score":"","done":false,"winner":null},{"id":"16vos_7","round":"16vos","p1":"Daniel Nahmias","p2":"Conrado Payseé","score":"","done":false,"winner":null},{"id":"16vos_8","round":"16vos","p1":"Ignacio Rivela","p2":"Marcelo Díaz","score":"","done":false,"winner":null},{"id":"16vos_9","round":"16vos","p1":"Javier Mosca","p2":"Enrique Talmon","score":"","done":false,"winner":null},{"id":"16vos_10","round":"16vos","p1":"Felipe Balerio","p2":"Guzmán Zorrilla","score":"","done":false,"winner":null},{"id":"16vos_11","round":"16vos","p1":"Fernando Quiñones","p2":"Santiago Soler","score":"","done":false,"winner":null},{"id":"16vos_12","round":"16vos","p1":"José Ignacio Bemaor","p2":"Silvestre Serantes","score":"","done":false,"winner":null},{"id":"16vos_13","round":"16vos","p1":"Diego Aramendia","p2":"Alejandro Stegmann","score":"","done":false,"winner":null},{"id":"16vos_14","round":"16vos","p1":"Marcelo Jorcin","p2":"Felipe Regules","score":"","done":false,"winner":null},{"id":"16vos_15","round":"16vos","p1":"Lucas Baldomir","p2":"Agustin Castelli","score":"","done":false,"winner":null},{"id":"16vos_16","round":"16vos","p1":"BYE","p2":"Daniel Igorra","score":"BYE","done":true,"winner":"Daniel Igorra"},{"id":"8vos_1","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_2","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_3","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_4","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_5","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_6","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_7","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"8vos_8","round":"8vos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_1","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_2","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_3","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"4tos_4","round":"4tos","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_1","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Semis_2","round":"Semis","p1":"","p2":"","score":"","done":false,"winner":null},{"id":"Final_1","round":"Final","p1":"","p2":"","score":"","done":false,"winner":null}]}};
+window.E3_CUPS = E3_CUPS;
+window.E3_CUPS_ORIG = JSON.parse(JSON.stringify(E3_CUPS));
+// Auto-propagate BYEs so winners advance to 8vos automatically
+(function() {
+  var byeCupKeys = ['e3_catA_oro','e3_catA_plata','e3_catB_oro','e3_catB_plata'];
+  byeCupKeys.forEach(function(ck) {
+    var cup = window.E3_CUPS && window.E3_CUPS[ck];
+    if (!cup) return;
+    cup.matches.filter(function(m){ return m.round==='16vos'&&m.score==='BYE'&&m.done&&m.winner; })
+      .forEach(function(m){ try { propagateE3Cup(ck, m); } catch(e) {} });
+  });
+})();
+
 // ── ETAPA 3 STATE & RENDER ───────────────────────────────────────────────────
 let e3View = 'grupos';
 let e3Cat = 'A1';
@@ -2140,6 +2227,7 @@ function e3NavView(tab) {
   if (tab === 'qualy') renderEtapa3Qualy();
   else if (tab === 'partidos') renderEtapa3Partidos();
   else if (tab === 'posiciones') renderEtapa3Posiciones();
+  else if (tab === 'copas') renderEtapa3Copas();
   else renderEtapa3Grupos();
 }
 
@@ -2580,6 +2668,219 @@ function e3QualyFillRound2Names(qualy) {
     m2.p1 = (src1 && src1.done && src1.winner) ? normPlayerName(src1.winner) : '';
     m2.p2 = (src2 && src2.done && src2.winner) ? normPlayerName(src2.winner) : '';
   });
+}
+
+let e3CurrentCup = 'e3_catA_oro';
+
+function renderEtapa3Copas() {
+  var el = document.getElementById('main');
+  if (!el) return;
+  var cups = window.E3_CUPS || E3_CUPS;
+  var CUPS_INFO = [
+    {key:'e3_catA_oro',   label:'Cat. A — Copa de Oro',   type:'oro'},
+    {key:'e3_catA_plata', label:'Cat. A — Copa de Plata', type:'plata'},
+    {key:'e3_catB_oro',   label:'Cat. B — Copa de Oro',   type:'oro'},
+    {key:'e3_catB_plata', label:'Cat. B — Copa de Plata', type:'plata'},
+  ];
+  var cup = cups[e3CurrentCup];
+  if (!cup) return;
+  var isOro = cup.type === 'oro';
+  var accent = isOro ? '#B8860B' : '#7A8FA6';
+
+  // Cup tabs
+  var cupNavHtml = '<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 .5rem;border-bottom:1px solid var(--border);background:var(--white)">';
+  CUPS_INFO.forEach(function(ci) {
+    var active = ci.key === e3CurrentCup ? 'active' : '';
+    var cls = ci.type === 'oro' ? 'pill-current' : 'pill-done';
+    cupNavHtml += '<button class="cup-tab ' + (ci.key===e3CurrentCup?'active-'+(isOro?'oro':'plata'):'') + '" onclick="e3CurrentCup=\'' + ci.key + '\';renderEtapa3Copas()">' + ci.label + '</button>';
+  });
+  cupNavHtml += '</div>';
+
+  // Cup hero
+  var RO = ['16vos','8vos','4tos','Semis','Final'];
+  var matches = cup.matches;
+  var done = matches.filter(function(m){ return m.done && m.score !== 'BYE'; }).length;
+  var total = matches.filter(function(m){ return m.score !== 'BYE'; }).length;
+  var pct = total > 0 ? Math.round(done/total*100) : 0;
+  var pend = total - done;
+  var pendColor = pend > 0 ? 'var(--orange)' : 'var(--green)';
+
+  var pdfBtn = isAdmin ? '<button onclick="downloadE3CuadrosPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer">⬇ PDF</button>' : '';
+
+  var heroHtml = '<div class="cup-hero">' +
+    '<div class="cup-hero-top"><div class="cup-hero-title" style="color:'+accent+'">' + (isOro?'🏆':'🥈') + ' ' + cup.label + '</div>' +
+    '<div style="display:flex;gap:6px;align-items:center"><div class="cup-badge badge-'+cup.type+'">' + (isOro?'Copa Oro':'Copa Plata') + '</div>' + pdfBtn + '</div></div>' +
+    '<div class="progress-track"><div class="progress-fill fill-'+cup.type+'" style="width:'+pct+'%"></div></div>' +
+    '<div class="cup-stats-row">' +
+      '<div class="cup-stat"><div class="cs-val">'+done+'</div><div class="cs-lbl">Jugados</div></div>' +
+      '<div class="cup-stat"><div class="cs-val" style="color:'+pendColor+'">'+pend+'</div><div class="cs-lbl">Pendientes</div></div>' +
+      '<div class="cup-stat"><div class="cs-val">'+total+'</div><div class="cs-lbl">Total</div></div>' +
+      '<div class="cup-stat"><div class="cs-val">'+pct+'%</div><div class="cs-lbl">Avance</div></div>' +
+    '</div></div>';
+
+  // Matches by round
+  var byRound = {};
+  matches.forEach(function(m){ (byRound[m.round]=byRound[m.round]||[]).push(m); });
+  var matchHtml = '';
+  RO.forEach(function(r) {
+    if (!byRound[r] || !byRound[r].length) return;
+    var played = byRound[r].filter(function(m){ return m.done && m.score!=='BYE'; }).length;
+    var total_r = byRound[r].filter(function(m){ return m.score!=='BYE'; }).length;
+    var RL = {'16vos':'16vos de Final','8vos':'Octavos de Final','4tos':'Cuartos de Final','Semis':'Semifinales','Final':'FINAL'};
+    matchHtml += '<div class="round-group"><div class="round-header"><div class="rh-title">' + (RL[r]||r).toUpperCase() + '</div>' +
+      '<div class="rh-count">' + played + '/' + total_r + ' jugados</div></div>';
+    byRound[r].forEach(function(m) {
+      if (m.score === 'BYE') return; // skip BYE matches
+      matchHtml += e3CupMatchCardHtml(m, e3CurrentCup);
+    });
+    matchHtml += '</div>';
+  });
+
+  el.innerHTML = cupNavHtml + heroHtml + '<div class="draw-content">' + (matchHtml || '<div class="empty">Sin partidos</div>') + '</div>';
+}
+
+function e3CupMatchCardHtml(m, cupKey) {
+  var isNJ = m.score === 'NJ';
+  var p = (m.done && !isNJ && !isWO(m.score)) ? parseScore(m.score) : null;
+  var w = p ? p.winner : null;
+  var isWo = isWO(m.score); var tb = isTB(m.score);
+  var stCls, stTxt;
+  if (isNJ)       { stCls='st-tbd';  stTxt='No Jugado'; }
+  else if (isWo)  { stCls='st-wo';   stTxt='W.O.'; }
+  else if (m.done){ stCls='st-done'; stTxt='Finalizado'; }
+  else            { stCls='st-pend'; stTxt='Pendiente'; }
+  var p1tbd = !m.p1 || m.p1==='Por definir'; var p2tbd = !m.p2 || m.p2==='Por definir';
+  var p1cls = (m.done&&!isNJ) ? (w===1?'winner':'loser') : '';
+  var p2cls = (m.done&&!isNJ) ? (w===2?'winner':'loser') : '';
+  var editingThis = window._editingE3CupId === m.id;
+  var footer = '';
+  if (isAdmin && !m.done && !p1tbd && !p2tbd && !editingThis) {
+    footer = '<button class="btn-load" onclick="startE3CupEdit(\'' + m.id + '\',\'' + cupKey + '\')">+ Cargar resultado</button>' +
+      '<button class="btn-cancel" style="margin-left:6px;background:#6c757d;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.78rem;cursor:pointer" onclick="saveE3CupNJ(\'' + m.id + '\',\'' + cupKey + '\')">N/J</button>';
+  } else if (isAdmin && m.done && !isNJ) {
+    footer = '<button class="btn-edit" onclick="startE3CupEdit(\'' + m.id + '\',\'' + cupKey + '\')">✎ Editar</button>' +
+      '<button class="btn-cancel" style="margin-left:6px" onclick="deleteE3CupScore(\'' + m.id + '\',\'' + cupKey + '\')">✕ Borrar</button>';
+  } else if (isAdmin && isNJ) {
+    footer = '<button class="btn-edit" onclick="startE3CupEdit(\'' + m.id + '\',\'' + cupKey + '\')">✎ Editar</button>' +
+      '<button class="btn-cancel" style="margin-left:6px" onclick="deleteE3CupScore(\'' + m.id + '\',\'' + cupKey + '\')">✕ Borrar</button>';
+  } else if (editingThis) {
+    footer = '<div class="score-form"><input class="input" id="e3cup-inp-' + m.id + '" placeholder="6-3 7-5 · 6-3 4-6 10-5 · W.O. 1 · W.O. 2" onkeydown="if(event.key===\'Enter\')saveE3CupScore(\'' + m.id + '\',\'' + cupKey + '\')"/>' +
+      '<button class="btn-ok" onclick="saveE3CupScore(\'' + m.id + '\',\'' + cupKey + '\')">OK</button>' +
+      '<button class="btn-cancel" onclick="window._editingE3CupId=null;renderEtapa3Copas()">✕</button></div>' +
+      '<div class="score-hint">2 sets: <b>6-3 7-5</b> · STB: <b>6-3 4-6 10-5</b> · W.O.: <b>W.O. 1</b> (gana J2)</div>';
+  }
+  var RL = {'16vos':'16vos de Final','8vos':'Octavos','4tos':'Cuartos','Semis':'Semifinales','Final':'FINAL'};
+  return '<div class="match-card">' +
+    '<div class="match-card-header"><div class="mh-round">' + (RL[m.round]||m.round) + '</div>' +
+    '<div class="mh-right">' + h2hBtnHtml(m.p1, m.p2) + (tb?'<span class="stb-note">STB</span>':'') + '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
+    '<div class="player-row ' + p1cls + '"><div class="pr-name"' + (p1tbd?'':' onclick="openPlayer(\'' + (m.p1||'').replace(/'/g,"\\'") + '\')"') + '>' + (p1tbd?'Por definir':m.p1) + '</div>' +
+    '<div class="pr-sets">' + (p1tbd?'':setBoxesHtml(p,1)) + (isWo&&w===2?'<span class="wo-tag">W.O.</span>':'') + '</div>' +
+    '<div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
+    '<div class="player-row ' + p2cls + '"><div class="pr-name"' + (p2tbd?'':' onclick="openPlayer(\'' + (m.p2||'').replace(/'/g,"\\'") + '\')"') + '>' + (p2tbd?'Por definir':m.p2) + '</div>' +
+    '<div class="pr-sets">' + (p2tbd?'':setBoxesHtml(p,2)) + (isWo&&w===1?'<span class="wo-tag">W.O.</span>':'') + '</div>' +
+    '<div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
+    (footer ? '<div class="match-footer">' + footer + '</div>' : '') +
+  '</div>';
+}
+
+function startE3CupEdit(id, cupKey) {
+  window._editingE3CupId = id;
+  renderEtapa3Copas();
+  setTimeout(function(){ var el=document.getElementById('e3cup-inp-'+id); if(el) el.focus(); }, 50);
+}
+
+function findE3CupMatch(id, cupKey) {
+  var cups = window.E3_CUPS || E3_CUPS;
+  var cup = cups[cupKey];
+  return cup && cup.matches.find(function(x){ return x.id===id; });
+}
+
+function saveE3CupScore(id, cupKey) {
+  var el = document.getElementById('e3cup-inp-'+id);
+  if (!el) return;
+  var raw = el.value.trim();
+  var m = findE3CupMatch(id, cupKey);
+  if (!m) return;
+  var woMatch = raw.toUpperCase().replace(/\s+/g,' ').match(/^W\.?O\.?\s*([12])$/);
+  if (woMatch) {
+    var woNum = parseInt(woMatch[1]);
+    m.score='WO'; m.done=true; m.winner=woNum===1?m.p2:m.p1;
+    window._editingE3CupId=null;
+    if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, 'WO', m.winner);
+    propagateE3Cup(cupKey, m);
+    showToast('✓ W.O. — '+m.winner); renderEtapa3Copas(); return;
+  }
+  if (!raw||!/\d+-\d+/.test(raw)){ showToast('Formato inválido'); el.focus(); return; }
+  var parts=raw.split(/\s+/); var isSTB=parts.length===3;
+  var p1s=0,p2s=0;
+  (isSTB?parts.slice(0,2):parts).forEach(function(s){ var ab=s.split('-').map(Number); if(ab[0]>ab[1])p1s++; else p2s++; });
+  if(isSTB){ var ab2=parts[2].split('-').map(Number); if(ab2[0]>ab2[1])p1s++; else p2s++; }
+  m.score=raw; m.done=true; m.winner=p1s>p2s?m.p1:m.p2;
+  window._editingE3CupId=null;
+  if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, raw, m.winner);
+  propagateE3Cup(cupKey, m);
+  showToast('✓ '+m.winner); renderEtapa3Copas();
+}
+
+function saveE3CupNJ(id, cupKey) {
+  var m = findE3CupMatch(id, cupKey);
+  if (!m) return;
+  m.score='NJ'; m.done=true; m.winner=null;
+  window._editingE3CupId=null;
+  if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, 'NJ', 'NJ');
+  showToast('✓ Partido marcado como No Jugado'); renderEtapa3Copas();
+}
+
+function deleteE3CupScore(id, cupKey) {
+  if(!confirm('¿Borrar el resultado?')) return;
+  var m = findE3CupMatch(id, cupKey);
+  if (!m) return;
+  var orig = (window.E3_CUPS_ORIG||{})[cupKey];
+  var origM = orig && orig.matches.find(function(x){ return x.id===id; });
+  m.score=''; m.done=false; m.winner=null;
+  if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, '__deleted__', '__deleted__');
+  // Reset next round slots and rebuild
+  rebuildE3Cup(cupKey);
+  showToast('✓ Resultado borrado'); renderEtapa3Copas();
+}
+
+function propagateE3Cup(cupKey, finishedMatch) {
+  var cups = window.E3_CUPS || E3_CUPS;
+  var cup = cups[cupKey];
+  if (!cup) return;
+  var ORDER=['16vos','8vos','4tos','Semis','Final'];
+  var rIdx=ORDER.indexOf(finishedMatch.round);
+  if(rIdx<0||rIdx>=ORDER.length-1) return;
+  var nextRound=ORDER[rIdx+1];
+  var sameRound=cup.matches.filter(function(m){ return m.round===finishedMatch.round&&m.score!=='BYE'; });
+  var pos=sameRound.findIndex(function(m){ return m.id===finishedMatch.id; });
+  if(pos<0) return;
+  var nextMatches=cup.matches.filter(function(m){ return m.round===nextRound; });
+  var nextIdx=Math.floor(pos/2); var slot=pos%2;
+  var next=nextMatches[nextIdx];
+  if(!next) return;
+  if(slot===0) next.p1=finishedMatch.winner;
+  else next.p2=finishedMatch.winner;
+}
+
+function rebuildE3Cup(cupKey) {
+  var cups = window.E3_CUPS || E3_CUPS;
+  var orig = (window.E3_CUPS_ORIG||{})[cupKey];
+  var cup = cups[cupKey];
+  if (!cup||!orig) return;
+  var ORDER=['16vos','8vos','4tos','Semis','Final'];
+  // Reset all matches to original
+  cup.matches.forEach(function(m,i){ var o=orig.matches[i]; m.p1=o.p1; m.p2=o.p2; });
+  // Re-propagate in round order
+  ORDER.forEach(function(r){
+    cup.matches.filter(function(m){ return m.round===r&&m.done&&m.winner&&m.score!=='BYE'; })
+      .forEach(function(m){ propagateE3Cup(cupKey, m); });
+  });
+}
+
+function downloadE3CuadrosPDF() {
+  // Uses the same bracket preview as E2 but for E3 cups
+  showToast('Función en desarrollo');
 }
 
 function exportE3Partidos() {
