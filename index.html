@@ -2723,8 +2723,8 @@ function renderEtapa3Copas() {
   // Cup hero
   var RO = ['16vos','8vos','4tos','Semis','Final'];
   var matches = cup.matches;
-  var done = matches.filter(function(m){ return m.done && m.score !== 'BYE'; }).length;
-  var total = matches.filter(function(m){ return m.score !== 'BYE'; }).length;
+  var done = matches.filter(function(m){ return m.done; }).length;
+  var total = matches.length;
   var pct = total > 0 ? Math.round(done/total*100) : 0;
   var pend = total - done;
   var pendColor = pend > 0 ? 'var(--orange)' : 'var(--green)';
@@ -2748,13 +2748,25 @@ function renderEtapa3Copas() {
   var matchHtml = '';
   RO.forEach(function(r) {
     if (!byRound[r] || !byRound[r].length) return;
-    var played = byRound[r].filter(function(m){ return m.done && m.score!=='BYE'; }).length;
-    var total_r = byRound[r].filter(function(m){ return m.score!=='BYE'; }).length;
+    var played = byRound[r].filter(function(m){ return m.done; }).length;
+    var total_r = byRound[r].length;
     var RL = {'16vos':'16vos de Final','8vos':'Octavos de Final','4tos':'Cuartos de Final','Semis':'Semifinales','Final':'FINAL'};
     matchHtml += '<div class="round-group"><div class="round-header"><div class="rh-title">' + (RL[r]||r).toUpperCase() + '</div>' +
       '<div class="rh-count">' + played + '/' + total_r + ' jugados</div></div>';
     byRound[r].forEach(function(m) {
-      if (m.score === 'BYE') return; // skip BYE matches
+      if (m.score === 'BYE') {
+        // Show BYE as "pase directo"
+        var advancer = m.winner || (m.p1 !== 'BYE' ? m.p1 : m.p2);
+        matchHtml += '<div class="match-card" style="opacity:.7">' +
+          '<div class="match-card-header"><div class="mh-round">' + (RL[r]||r) + '</div>' +
+          '<div class="mh-right"><span class="mh-status st-done">Pase Directo</span></div></div>' +
+          '<div class="player-row winner"><div class="pr-name" onclick="openPlayer(\'' + advancer.replace(/'/g,"\\'") + '\')">' + advancer + '</div>' +
+          '<div class="pr-sets"></div><div class="pr-check">✓</div></div>' +
+          '<div class="player-row" style="color:var(--muted);font-style:italic"><div class="pr-name">BYE</div>' +
+          '<div class="pr-sets"></div><div class="pr-check"></div></div>' +
+        '</div>';
+        return;
+      }
       matchHtml += e3CupMatchCardHtml(m, e3CurrentCup);
     });
     matchHtml += '</div>';
