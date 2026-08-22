@@ -1792,47 +1792,73 @@ const RANKING_PTS = {
 };
 
 function getE3CupPhaseAndPts(name) {
-  // Returns {pts, label} for a player in E3 cups
+  // Returns {pts, label} for a player based on current E3 cup status
+  // Logic: find the best phase reached, determine pts from RANKING_PTS
+  // Players still in: get pts for current round reached
+  // Players eliminated: get pts for the round they were eliminated in
   const cups = window.E3_CUPS || (typeof E3_CUPS !== 'undefined' ? E3_CUPS : null);
   if (!cups) return {pts:0, label:''};
   const cupMap = {e3_catA_oro:'oro', e3_catA_plata:'plata', e3_catB_oro:'oro', e3_catB_plata:'plata'};
   const ORDER = ['16vos','8vos','4tos','Semis','Final'];
+  const PHASE_LABELS = {
+    '16vos':'16vos', '8vos':'8vos', '4tos':'4tos', 'Semis':'Semis',
+    'Finalista':'Finalista', 'Campeón':'Campeón'
+  };
   let totalPts = 0, bestLabel = '';
+
   Object.entries(cups).forEach(([key, cup]) => {
     const type = cupMap[key]; if (!type) return;
-    const allMatches = cup.matches.filter(m => !isBYE(m.score) && m.score !== 'BYE');
-    let bestRound = null, lostRound = null;
-    allMatches.forEach(m => {
-      if (m.p1 !== name && m.p2 !== name) return;
-      if (!m.done) return;
-      const idx = ORDER.indexOf(m.round);
-      if (idx >= ORDER.indexOf(bestRound)) {
-        bestRound = m.round;
-        if (m.winner !== name) lostRound = m.round;
-      }
-    });
-    if (!bestRound) return;
-    let label;
-    if (lostRound) {
-      label = lostRound === 'Final' ? 'Finalista' : lostRound;
-    } else {
-      let bestWon = null;
-      allMatches.forEach(m => {
-        if (!m.done || m.winner !== name) return;
-        if (ORDER.indexOf(m.round) > ORDER.indexOf(bestWon)) bestWon = m.round;
+
+    // All matches involving this player (including BYE advances)
+    const playerMatches = cup.matches.filter(m =>
+      (m.p1 === name || m.p2 === name) && m.done
+    );
+    if (!playerMatches.length) return;
+
+    // Find highest round reached and whether eliminated
+    let highestRoundIdx = -1;
+    let eliminated = false;
+    let eliminatedRound = null;
+    let isChampion = false;
+
+    ORDER.forEach((r, rIdx) => {
+      const roundMatches = playerMatches.filter(m => m.round === r);
+      roundMatches.forEach(m => {
+        if (rIdx > highestRoundIdx) highestRoundIdx = rIdx;
+        if (m.score === 'BYE') return; // BYE = free pass, not really played
+        if (m.winner !== name) {
+          eliminated = true;
+          eliminatedRound = r;
+        }
+        if (r === 'Final' && m.winner === name) isChampion = true;
       });
-      if (!bestWon) return;
-      const nextIdx = ORDER.indexOf(bestWon) + 1;
-      label = ORDER[nextIdx] || 'Campeón';
-      if (label === 'Final') label = 'Semis';
+    });
+
+    if (highestRoundIdx < 0) return;
+
+    let label;
+    if (isChampion) {
+      label = 'Campeón';
+    } else if (eliminated) {
+      label = eliminatedRound === 'Final' ? 'Finalista' : eliminatedRound;
+    } else {
+      // Still in competition — give pts for the round they've reached
+      // "reached 8vos" means won 16vos
+      // Points are for the highest round they've WON into
+      const highestReached = ORDER[highestRoundIdx];
+      // They reached this round, so they get the points for that phase
+      label = highestReached;
     }
-    allMatches.forEach(m => { if (m.round==='Final' && m.done && m.winner===name) label='Campeón'; });
+
     const ptRow = RANKING_PTS[label];
     if (ptRow) {
       totalPts += ptRow[type] || 0;
-      if (!bestLabel || ORDER.indexOf(label) > ORDER.indexOf(bestLabel)) bestLabel = label;
+      const labelIdx = label === 'Campeón' ? 99 : label === 'Finalista' ? 98 : ORDER.indexOf(label);
+      const bestIdx = bestLabel === 'Campeón' ? 99 : bestLabel === 'Finalista' ? 98 : ORDER.indexOf(bestLabel);
+      if (labelIdx > bestIdx) bestLabel = label;
     }
   });
+
   return {pts: totalPts, label: bestLabel};
 }
 
@@ -2905,11 +2931,19 @@ function rebuildE3Cup(cupKey) {
   var cup = cups[cupKey];
   if (!cup||!orig) return;
   var ORDER=['16vos','8vos','4tos','Semis','Final'];
-  // Reset all matches to original
-  cup.matches.forEach(function(m,i){ var o=orig.matches[i]; m.p1=o.p1; m.p2=o.p2; });
-  // Re-propagate in round order (including BYEs)
+  // Reset all non-BYE slots to original p1/p2
+  // Keep BYE winner slots intact (they are fixed seedings)
+  cup.matches.forEach(function(m,i){
+    var o=orig.matches[i];
+    // Only reset slots that come from actual match results, not BYE seedings
+    if (o.score !== 'BYE') { m.p1=o.p1; m.p2=o.p2; }
+  });
+  // Re-propagate BYEs first (they are fixed)
+  cup.matches.filter(function(m){ return m.score==='BYE'&&m.done&&m.winner; })
+    .forEach(function(m){ propagateE3Cup(cupKey, m); });
+  // Then re-propagate actual results in round order
   ORDER.forEach(function(r){
-    cup.matches.filter(function(m){ return m.round===r&&m.done&&m.winner; })
+    cup.matches.filter(function(m){ return m.round===r&&m.done&&m.winner&&m.score!=='BYE'; })
       .forEach(function(m){ propagateE3Cup(cupKey, m); });
   });
 }
