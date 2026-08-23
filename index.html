@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v204 -->
+<!-- v205 -->
 <html lang="es">
 <head>
 <script>
@@ -1805,6 +1805,7 @@ function getE3CupPhaseAndPts(name) {
     'Finalista':'Finalista', 'Campeón':'Campeón'
   };
   let totalPts = 0, bestLabel = '';
+  const detail = [];   // FIX v205: {label, cupType, pts} por copa, para mostrar en Ranking
 
   Object.entries(cups).forEach(([key, cup]) => {
     const type = cupMap[key]; if (!type) return;
@@ -1842,24 +1843,37 @@ function getE3CupPhaseAndPts(name) {
     } else if (eliminated) {
       label = eliminatedRound === 'Final' ? 'Finalista' : eliminatedRound;
     } else {
-      // Still in competition — give pts for the round they've reached
-      // "reached 8vos" means won 16vos
-      // Points are for the highest round they've WON into
-      const highestReached = ORDER[highestRoundIdx];
-      // They reached this round, so they get the points for that phase
-      label = highestReached;
+      // FIX v205: sigue en carrera. El jugador GANO su ultimo partido jugado,
+      // asi que ya avanzo a la ronda siguiente. Le corresponden los puntos de
+      // la ronda en la que esta AHORA, no de la que ya gano.
+      // (Un BYE en 16vos tambien cuenta como avance a 8vos.)
+      const siguiente = ORDER[highestRoundIdx + 1];
+      if (!siguiente) {
+        label = 'Finalista';          // gano la Final pero aun sin marcar: minimo finalista
+      } else if (siguiente === 'Final') {
+        label = 'Finalista';          // esta jugando la Final: minimo garantizado
+      } else {
+        label = siguiente;
+      }
     }
 
     const ptRow = RANKING_PTS[label];
     if (ptRow) {
-      totalPts += ptRow[type] || 0;
+      const cupPts = ptRow[type] || 0;
+      totalPts += cupPts;
+      detail.push({
+        label: label,
+        cupType: type === 'oro' ? 'Oro' : 'Plata',
+        pts: cupPts,
+        activo: !eliminated && !isChampion   // sigue en carrera
+      });
       const labelIdx = label === 'Campeón' ? 99 : label === 'Finalista' ? 98 : ORDER.indexOf(label);
       const bestIdx = bestLabel === 'Campeón' ? 99 : bestLabel === 'Finalista' ? 98 : ORDER.indexOf(bestLabel);
       if (labelIdx > bestIdx) bestLabel = label;
     }
   });
 
-  return {pts: totalPts, label: bestLabel};
+  return {pts: totalPts, label: bestLabel, detail: detail};
 }
 
 function getPlayerRankingPts(name, etapa) {
@@ -2117,8 +2131,9 @@ function renderRanking() {
         const e2round = getE2BestRound(name, category);
         const e3data = getE3CupPhaseAndPts(name);
         const e3pts = e3data.pts; const e3round = e3data.label;
+        const e3rounds = e3data.detail || [];
         const e4=0;
-        return {name, e1pts, e1round, e2pts, e2round, e3pts, e3round, e4, total: e1pts+e2pts+e3pts+e4};
+        return {name, e1pts, e1round, e2pts, e2round, e3pts, e3round, e3rounds, e4, total: e1pts+e2pts+e3pts+e4};
       })
       .filter(p => p.total > 0)
       .sort((a,b) => b.total - a.total);
@@ -2127,7 +2142,7 @@ function renderRanking() {
 
     // Scrollable table
     const header = `
-      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 90px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:520px">
+      <div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 90px 52px;gap:0;background:#f0f2f5;border-bottom:2px solid var(--border);padding:5px 8px;min-width:690px">
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">#</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted)">JUGADOR</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--blue);text-align:center">TOTAL</div>
@@ -2135,12 +2150,13 @@ function renderRanking() {
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E1 Fase</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E2 Pts</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E2 Fase</div>
-        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E3</div>
+        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E3 Pts</div>
+        <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E3 Fase</div>
         <div style="font-size:.6rem;font-weight:700;color:var(--muted);text-align:center">E4</div>
       </div>`;
 
     const fmt = v => v > 0 ? v : '-';
-    const rowsHtml = rows.map(({name,e1pts,e1round,e2pts,e2round,e3pts,e3round,e4,total},i) => {
+    const rowsHtml = rows.map(({name,e1pts,e1round,e2pts,e2round,e3pts,e3round,e3rounds,e4,total},i) => {
       const bg = i%2===0?'#fafbfc':'white';
       // Build phase display: e.g. "Final Oro / 8vos Plata"
       const phaseHtml = (e1round||[]).map(r =>
@@ -2149,7 +2165,11 @@ function renderRanking() {
       const e2PhaseHtml = (e2round||[]).map(r =>
         `<div style="font-size:.6rem;white-space:nowrap">${SHORT[r.label]||r.label} <span style="color:${r.cupType==='Oro'?'#b8860b':'#607d8b'};font-weight:600">${r.cupType}</span></div>`
       ).join('') || '<div style="font-size:.68rem;color:var(--muted)">-</div>';
-      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 90px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:520px">
+      // FIX v205: fase de Etapa 3. Los que siguen en carrera llevan un punto azul.
+      const e3PhaseHtml = (e3rounds||[]).map(r =>
+        `<div style="font-size:.6rem;white-space:nowrap">${SHORT[r.label]||r.label} <span style="color:${r.cupType==='Oro'?'#b8860b':'#607d8b'};font-weight:600">${r.cupType}</span>${r.activo?' <span title="Sigue en carrera" style="color:var(--blue);font-weight:700">•</span>':''}</div>`
+      ).join('') || '<div style="font-size:.68rem;color:var(--muted)">-</div>';
+      return `<div style="display:grid;grid-template-columns:32px minmax(120px,1fr) 52px 52px 90px 52px 90px 52px 90px 52px;gap:0;background:${bg};border-bottom:1px solid var(--border);padding:6px 8px;align-items:center;min-width:690px">
         <div style="font-size:.72rem;font-weight:700;color:var(--muted);text-align:center">${i+1}</div>
         <div style="font-size:.82rem;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="openPlayer('${name.replace(/'/g,"\'")}')">${name}</div>
         <div style="font-size:.85rem;font-weight:700;color:var(--blue);text-align:center">${total}</div>
@@ -2157,8 +2177,9 @@ function renderRanking() {
         <div style="text-align:center">${phaseHtml}</div>
         <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e2pts)}</div>
         <div style="text-align:center">${e2PhaseHtml}</div>
-        <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
-        <div style="font-size:.72rem;color:var(--muted);text-align:center">-</div>
+        <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e3pts)}</div>
+        <div style="text-align:center">${e3PhaseHtml}</div>
+        <div style="font-size:.72rem;color:var(--muted);text-align:center">${fmt(e4)}</div>
       </div>`;
     }).join('');
 
@@ -2914,7 +2935,9 @@ function propagateE3Cup(cupKey, finishedMatch) {
   var rIdx=ORDER.indexOf(finishedMatch.round);
   if(rIdx<0||rIdx>=ORDER.length-1) return;
   var nextRound=ORDER[rIdx+1];
-  var sameRound=cup.matches.filter(function(m){ return m.round===finishedMatch.round&&m.score!=='BYE'; });
+  // FIX v205: NO excluir los BYE. Excluirlos corria las posiciones y el ganador
+  // de un partido normal pisaba el slot del jugador que avanzo por BYE.
+  var sameRound=cup.matches.filter(function(m){ return m.round===finishedMatch.round; });
   var pos=sameRound.findIndex(function(m){ return m.id===finishedMatch.id; });
   if(pos<0) return;
   var nextMatches=cup.matches.filter(function(m){ return m.round===nextRound; });
