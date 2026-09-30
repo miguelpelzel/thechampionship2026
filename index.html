@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v205 -->
+<!-- v206 -->
 <html lang="es">
 <head>
 <script>
@@ -1791,14 +1791,20 @@ const RANKING_PTS = {
   '32vos':     {oro:30,   plata:10},
 };
 
-function getE3CupPhaseAndPts(name) {
+function getE3CupPhaseAndPts(name, category) {
+  // FIX v206: 'category' ('A' o 'B') limita el calculo a las copas de esa categoria.
+  // Sin ese filtro, los puntos de la Copa de Oro Cat. B se sumaban en la fila de
+  // Cat. A para los jugadores que cambiaron de categoria en la Etapa 3.
+  // Si se omite, se comporta como antes (suma todas las copas).
   // Returns {pts, label} for a player based on current E3 cup status
   // Logic: find the best phase reached, determine pts from RANKING_PTS
   // Players still in: get pts for current round reached
   // Players eliminated: get pts for the round they were eliminated in
   const cups = window.E3_CUPS || (typeof E3_CUPS !== 'undefined' ? E3_CUPS : null);
   if (!cups) return {pts:0, label:''};
-  const cupMap = {e3_catA_oro:'oro', e3_catA_plata:'plata', e3_catB_oro:'oro', e3_catB_plata:'plata'};
+  const cupMap = category==='A' ? {e3_catA_oro:'oro', e3_catA_plata:'plata'}
+              : category==='B' ? {e3_catB_oro:'oro', e3_catB_plata:'plata'}
+              : {e3_catA_oro:'oro', e3_catA_plata:'plata', e3_catB_oro:'oro', e3_catB_plata:'plata'};
   const ORDER = ['16vos','8vos','4tos','Semis','Final'];
   const PHASE_LABELS = {
     '16vos':'16vos', '8vos':'8vos', '4tos':'4tos', 'Semis':'Semis',
@@ -2121,7 +2127,21 @@ function renderRanking() {
         if(m.p2&&m.p2!=='Por definir') e2Players.add(m.p2);
       });
     });
-    const allPlayers = [...new Set([...players, ...e2Players])];
+    // FIX v206: sumar tambien los jugadores que aparecen en la Etapa 3 de ESTA
+    // categoria aunque no hayan jugado E1/E2 en ella. Asi un jugador que cambio
+    // de categoria figura en ambas tablas, cada una con los puntos que le tocan.
+    const cups3 = window.E3_CUPS || E3_CUPS;
+    const e3CupKeys = category==='A'
+      ? ['e3_catA_oro','e3_catA_plata'] : ['e3_catB_oro','e3_catB_plata'];
+    const e3Players = new Set();
+    e3CupKeys.forEach(k => {
+      const cup = cups3 && cups3[k]; if(!cup) return;
+      (cup.matches||[]).forEach(m => {
+        if(m.p1 && m.p1!=='Por definir' && m.p1!=='BYE') e3Players.add(m.p1);
+        if(m.p2 && m.p2!=='Por definir' && m.p2!=='BYE') e3Players.add(m.p2);
+      });
+    });
+    const allPlayers = [...new Set([...players, ...e2Players, ...e3Players])];
 
     const rows = allPlayers
       .map(name => {
@@ -2129,7 +2149,7 @@ function renderRanking() {
         const e1round = getBestRound(name, cupKeys);
         const e2pts = calcE2Pts(name, category);
         const e2round = getE2BestRound(name, category);
-        const e3data = getE3CupPhaseAndPts(name);
+        const e3data = getE3CupPhaseAndPts(name, category);
         const e3pts = e3data.pts; const e3round = e3data.label;
         const e3rounds = e3data.detail || [];
         const e4=0;
