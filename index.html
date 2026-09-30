@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v210 -->
+<!-- v211 -->
 <html lang="es">
 <head>
 <script>
@@ -498,10 +498,10 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
         <img src="splash.jpg" style="width:38px;height:38px;object-fit:cover;border-radius:8px;flex-shrink:0" alt="The Championship"/>
         <div class="logo-text">
           <div class="logo-title">The Championship</div>
-          <div class="logo-sub" id="header-sub">2026 · ETAPA 2 · PLAYOFFS</div>
+          <div class="logo-sub" id="header-sub" style="display:none"></div>
         </div>
       </div>
-      <div class="header-badge" id="header-badge">EN CURSO</div>
+      <div class="header-badge" id="header-badge" style="display:none"></div>
     </div>
   </header>
   <div id="cup-nav-wrap"><div class="cup-nav" id="cup-nav"></div></div>
@@ -1602,6 +1602,11 @@ function openStage(id) {
 
 function goHome() {
   window._userNavigated = true;
+  // En la pantalla de etapas el encabezado muestra solo "The Championship"
+  var _hs = document.getElementById('header-sub');
+  if (_hs) { _hs.textContent = ''; _hs.style.display = 'none'; }
+  var _hb = document.getElementById('header-badge');
+  if (_hb) { _hb.style.display = 'none'; }
   document.getElementById('nav-home').style.display = '';
   document.getElementById('nav-e1').style.display = 'none';
   document.getElementById('nav-e2').style.display = 'none';
