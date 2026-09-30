@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v207 -->
+<!-- v208 -->
 <html lang="es">
 <head>
 <script>
@@ -3423,19 +3423,24 @@ function e4MatchCardHtml(m, cupKey) {
     if (tbd) return '<div class="pr-name" style="color:var(--muted);font-style:italic">Por definir</div>';
     return '<div class="pr-name" onclick="openPlayer(\'' + esc(nm) + '\')">' + seedTag(seed) + nm + '</div>';
   };
-  var sets1='', sets2='';
-  if (p && p.sets) {
-    sets1 = p.sets.map(function(s){ return '<span class="set">'+s[0]+'</span>'; }).join('');
-    sets2 = p.sets.map(function(s){ return '<span class="set">'+s[1]+'</span>'; }).join('');
-  }
+  // FIX v208: parseScore devuelve sets como objetos {a,b,tb}. Usar el helper
+  // setBoxesHtml de la app (el mismo que E1/E2/E3) en vez de leer s[0]/s[1],
+  // que daba "undefined undefined" en el cuadro.
+  var sets1 = (p1tbd || !p) ? '' : setBoxesHtml(p, 1);
+  var sets2 = (p2tbd || !p) ? '' : setBoxesHtml(p, 2);
+  var woTag1 = (isWO(m.score) && w === 2) ? '<span class="wo-tag">W.O.</span>' : '';
+  var woTag2 = (isWO(m.score) && w === 1) ? '<span class="wo-tag">W.O.</span>' : '';
+  var tb = isTB(m.score);
+  var h2hBtn = (!p1tbd && !p2tbd && typeof h2hBtnHtml === 'function') ? h2hBtnHtml(m.p1, m.p2) : '';
 
   return '<div class="match-card">' +
     '<div class="match-card-header"><div class="mh-round">' + (E4_ROUND_LABELS[m.round]||m.round) + '</div>' +
-    '<div class="mh-right"><span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
+    '<div class="mh-right">' + h2hBtn + (tb?'<span class="stb-note">STB</span>':'') +
+      '<span class="mh-status ' + stCls + '">' + stTxt + '</span></div></div>' +
     '<div class="player-row ' + p1cls + '">' + nameCell(m.p1, p1tbd, m.seed1) +
-      '<div class="pr-sets">' + sets1 + '</div><div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
+      '<div class="pr-sets">' + sets1 + woTag1 + '</div><div class="pr-check">' + (w===1?'✓':'') + '</div></div>' +
     '<div class="player-row ' + p2cls + '">' + nameCell(m.p2, p2tbd, m.seed2) +
-      '<div class="pr-sets">' + sets2 + '</div><div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
+      '<div class="pr-sets">' + sets2 + woTag2 + '</div><div class="pr-check">' + (w===2?'✓':'') + '</div></div>' +
     (footer ? '<div class="match-footer">' + footer + '</div>' : '') +
   '</div>';
 }
@@ -3473,7 +3478,7 @@ function renderEtapa4Cuadros() {
   var heroHtml = '<div class="cup-hero">' +
     '<div class="cup-hero-top"><div class="cup-hero-title" style="color:'+accent+'">🎾 ' + cup.label + '</div>' +
     '<div style="display:flex;gap:6px;align-items:center">' +
-    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer">⬇ PDF</button>' +
+    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ PDF del cuadro</button>' +
     '</div></div>' +
     '<div class="progress-track"><div class="progress-fill fill-oro" style="width:'+pct+'%"></div></div>' +
     '<div class="cup-stats-row">' +
@@ -3561,9 +3566,10 @@ function renderEtapa4Partidos() {
   var jug  = rows.filter(function(r){ return r.m.done; });
   var show = filt === 'pend' ? pend : jug;
 
-  var tabs = '<div class="cup-nav" style="padding:0 .5rem;border-bottom:1px solid var(--border);background:var(--white)">' +
-    '<button class="cup-tab ' + (filt==='pend'?'active-oro':'') + '" onclick="window._e4PartFilter=\'pend\';renderEtapa4Partidos()">Pendientes (' + pend.length + ')</button>' +
-    '<button class="cup-tab ' + (filt==='jug'?'active-oro':'') + '" onclick="window._e4PartFilter=\'jug\';renderEtapa4Partidos()">Jugados (' + jug.length + ')</button>' +
+  var tabs = '<div class="cup-nav" style="padding:0 .5rem;border-bottom:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:space-between;gap:6px">' +
+    '<div><button class="cup-tab ' + (filt==='pend'?'active-oro':'') + '" onclick="window._e4PartFilter=\'pend\';renderEtapa4Partidos()">Pendientes (' + pend.length + ')</button>' +
+    '<button class="cup-tab ' + (filt==='jug'?'active-oro':'') + '" onclick="window._e4PartFilter=\'jug\';renderEtapa4Partidos()">Jugados (' + jug.length + ')</button></div>' +
+    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;margin-right:4px">⬇ PDF del cuadro</button>' +
     '</div>';
 
   var html = '';
@@ -3585,54 +3591,141 @@ function renderEtapa4Partidos() {
 // ── PDF del cuadro ─────────────────────────────────────────────────────────
 function downloadE4CuadroPDF() {
   var cups = window.E4_CUPS || E4_CUPS;
-  var cup = cups[e4CurrentCup];
+  var cupKey = e4CurrentCup;
+  var cup = cups[cupKey];
   if (!cup) return;
-  var accent = e4CurrentCup === 'e4_catA' ? '#0A4B8C' : '#00694A';
+
+  var isA = cupKey === 'e4_catA';
+  var accent      = isA ? '#0D4F8B' : '#00694A';
+  var accentLight = isA ? '#EAF3FC' : '#E6F4EF';
+
   var byRound = {};
   cup.matches.forEach(function(m){ (byRound[m.round]=byRound[m.round]||[]).push(m); });
 
-  var css = 'body{font-family:Arial,Helvetica,sans-serif;margin:16px;color:#1a1a2e}' +
-    'h1{font-size:18px;color:' + accent + ';margin:0 0 2px}' +
-    '.sub{font-size:11px;color:#667;margin-bottom:14px}' +
-    '.cols{display:flex;gap:10px;align-items:flex-start}' +
-    '.col{min-width:150px;flex:1}' +
-    '.ch{font-size:10px;font-weight:bold;color:#fff;background:' + accent + ';padding:3px 6px;border-radius:3px;text-align:center;margin-bottom:6px}' +
-    '.mt{border:1px solid #d5d9e2;border-radius:4px;margin-bottom:5px;overflow:hidden;font-size:10px}' +
-    '.pl{padding:3px 5px;display:flex;justify-content:space-between;gap:4px;border-bottom:1px solid #eef0f4}' +
-    '.pl:last-child{border-bottom:none}' +
-    '.win{font-weight:bold;background:#f2f8ff}' +
-    '.sc{color:#667;font-size:9px;white-space:nowrap}' +
-    '.tbd{color:#aab;font-style:italic}' +
-    '@media print{.noprint{display:none}}';
-
-  var body = '<h1>' + cup.label + '</h1><div class="sub">The Championship 2026 · Generado el ' +
-    new Date().toLocaleDateString('es-UY') + '</div>' +
-    '<button class="noprint" onclick="window.print()" style="margin-bottom:12px;padding:6px 14px;cursor:pointer">🖨 Imprimir / Guardar PDF</button><div class="cols">';
-
-  E4_ROUNDS.forEach(function(r){
-    var list = byRound[r];
-    if (!list || !list.length) return;
-    var anyNamed = list.some(function(m){ return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir'); });
-    if (!anyNamed) return;
-    body += '<div class="col"><div class="ch">' + (E4_ROUND_LABELS[r]||r) + '</div>';
-    list.forEach(function(m){
-      var esc = function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
-      var n1 = m.p1 && m.p1!=='Por definir' ? esc(m.p1) : '<span class="tbd">Por definir</span>';
-      var n2 = m.p2 && m.p2!=='Por definir' ? esc(m.p2) : '<span class="tbd">Por definir</span>';
-      if (m.score === 'BYE') n2 = '<span class="tbd">BYE</span>';
-      var c1 = m.done && m.winner && m.winner===m.p1 ? ' win' : '';
-      var c2 = m.done && m.winner && m.winner===m.p2 ? ' win' : '';
-      var sc = (m.done && m.score && m.score!=='BYE') ? esc(m.score) : '';
-      body += '<div class="mt"><div class="pl' + c1 + '"><span>' + n1 + '</span><span class="sc">' + sc + '</span></div>' +
-              '<div class="pl' + c2 + '"><span>' + n2 + '</span><span class="sc"></span></div></div>';
+  // Solo las rondas que ya tienen algún jugador definido
+  var rounds = E4_ROUNDS.filter(function(r){
+    var l = byRound[r];
+    return l && l.some(function(m){
+      return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir');
     });
-    body += '</div>';
   });
-  body += '</div>';
 
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + cup.label +
-    '</title><style>' + css + '</style></head><body>' + body + '</body></html>';
-  var win = window.open('', '_blank', 'width=1200,height=840');
+  // Avance actual
+  var real = cup.matches.filter(function(m){
+    if (m.score === 'BYE') return false;
+    var t1=!m.p1||m.p1==='Por definir', t2=!m.p2||m.p2==='Por definir';
+    return !(t1&&t2);
+  });
+  var done = real.filter(function(m){ return m.done; }).length;
+  var total = real.length, pend = total-done;
+  var pct = total>0 ? Math.round(done/total*100) : 0;
+
+  var campeon = null;
+  var fin = (byRound['Final']||[])[0];
+  if (fin && fin.done && fin.winner) campeon = fin.winner;
+
+  var esc = function(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  };
+
+  var css = [
+    '*{box-sizing:border-box;margin:0;padding:0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}',
+    'body{background:#f5f5f5;padding:20px}',
+    '.page{background:white;max-width:1400px;margin:0 auto;padding:24px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}',
+    '.header{border-bottom:3px solid '+accent+';padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}',
+    '.header-title{font-size:20px;font-weight:700;color:#0D2B5E}',
+    '.header-sub{font-size:13px;color:#888;margin-top:3px}',
+    '.cup-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;background:'+accent+';color:white}',
+    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;margin-left:8px}',
+    '.stats{display:flex;gap:18px;margin-bottom:6px;font-size:11px;color:#555}',
+    '.stats b{color:#0D2B5E;font-size:13px}',
+    '.track{height:6px;background:#e8ebf0;border-radius:3px;overflow:hidden;margin-bottom:18px}',
+    '.fill{height:100%;background:'+accent+'}',
+    '.champ{background:'+accentLight+';border:2px solid '+accent+';border-radius:6px;padding:10px 14px;margin-bottom:16px;font-size:13px}',
+    '.champ b{color:'+accent+';font-size:15px}',
+    '.bracket{display:flex;gap:0;overflow-x:auto;padding-bottom:10px;align-items:stretch}',
+    '.round-col{display:flex;flex-direction:column;min-width:190px;flex:1}',
+    '.round-header{text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:white;background:'+accent+';padding:6px 4px;letter-spacing:.5px;border-radius:4px 4px 0 0;margin:0 4px}',
+    '.round-sub{text-align:center;font-size:9px;color:#888;padding:3px 0 5px}',
+    '.round-matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;padding:2px 4px}',
+    '.match{border:1px solid #dde6f0;border-radius:5px;overflow:hidden;margin:3px 0;background:white;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
+    '.player{padding:5px 8px;font-size:11px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f0f0f0;min-height:27px;gap:6px}',
+    '.player:last-child{border-bottom:none}',
+    '.player.winner{background:'+accentLight+';font-weight:700}',
+    '.player.tbd{color:#bbb;font-style:italic}',
+    '.seed{display:inline-block;font-size:8px;color:#fff;background:#9aa7b8;border-radius:3px;padding:1px 4px;margin-right:4px;font-weight:700;vertical-align:middle}',
+    '.score{font-size:10px;color:#555;font-family:"Courier New",monospace;white-space:nowrap}',
+    '.bye{font-size:9px;color:#aaa;font-style:italic}',
+    '.wo{font-size:8px;background:#e65100;color:#fff;border-radius:3px;padding:1px 4px;font-weight:700}',
+    '.nj{font-size:8px;background:#9aa7b8;color:#fff;border-radius:3px;padding:1px 4px;font-weight:700}',
+    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0;max-width:none}.btn-print{display:none}@page{size:landscape;margin:8mm}}'
+  ].join('\n');
+
+  var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  var body = '<div class="page">';
+  body += '<div class="header">' +
+    '<div><div class="header-title">THE CHAMPIONSHIP 2026 — ETAPA 4</div>' +
+    '<div class="header-sub">' + esc(cup.label) + ' · actualizado al ' + now + '</div></div>' +
+    '<div><span class="cup-badge">' + (isA?'CATEGORÍA A':'CATEGORÍA B') + '</span>' +
+    '<button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div></div>';
+
+  body += '<div class="stats"><div><b>' + done + '</b> jugados</div>' +
+    '<div><b>' + pend + '</b> pendientes</div>' +
+    '<div><b>' + total + '</b> total</div>' +
+    '<div><b>' + pct + '%</b> de avance</div></div>' +
+    '<div class="track"><div class="fill" style="width:' + pct + '%"></div></div>';
+
+  if (campeon) body += '<div class="champ">🏆 Campeón: <b>' + esc(campeon) + '</b></div>';
+
+  body += '<div class="bracket">';
+  rounds.forEach(function(r){
+    var list = (byRound[r]||[]).filter(function(m){
+      if (m.score === 'BYE') return true;
+      return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir');
+    });
+    var realR = list.filter(function(m){ return m.score!=='BYE'; });
+    var doneR = realR.filter(function(m){ return m.done; }).length;
+
+    body += '<div class="round-col"><div class="round-header">' + (E4_ROUND_LABELS[r]||r) + '</div>' +
+      '<div class="round-sub">' + doneR + '/' + realR.length + ' jugados</div><div class="round-matches">';
+
+    list.forEach(function(m){
+      var isNJ = m.score === 'NJ';
+      var isBye = m.score === 'BYE';
+      var wIdx = null;
+      if (m.done && m.winner) wIdx = (m.winner === m.p1) ? 1 : (m.winner === m.p2 ? 2 : null);
+
+      var row = function(nm, seed, idx, byeSlot) {
+        var tbd = !nm || nm==='Por definir';
+        var cls = 'player' + (wIdx===idx ? ' winner' : '') + (tbd||byeSlot ? ' tbd' : '');
+        var label;
+        if (byeSlot)    label = '<span class="bye">BYE</span>';
+        else if (tbd)   label = 'Por definir';
+        else            label = (seed ? '<span class="seed">' + esc(seed) + '</span>' : '') + esc(nm);
+        var sc = '';
+        if (idx === 1) {
+          if (isBye)      sc = '<span class="score">pase directo</span>';
+          else if (isNJ)  sc = '<span class="nj">N/J</span>';
+          else if (m.done && isWO(m.score)) sc = '<span class="wo">W.O.</span>';
+          else if (m.done && m.score)       sc = '<span class="score">' + esc(m.score) + '</span>';
+        }
+        return '<div class="' + cls + '"><span>' + label + '</span>' + sc + '</div>';
+      };
+
+      body += '<div class="match">' +
+        row(m.p1, m.seed1, 1, m.p1==='BYE') +
+        row(m.p2, m.seed2, 2, m.p2==='BYE') +
+      '</div>';
+    });
+    body += '</div></div>';
+  });
+  body += '</div></div>';
+
+  var html = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>' +
+    esc(cup.label) + ' — Etapa 4</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+
+  var win = window.open('', '_blank', 'width=1320,height=860');
   if (win) { win.document.write(html); win.document.close(); win.focus(); }
   else showToast('Permitir pop-ups para ver el PDF');
 }
