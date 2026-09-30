@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v208 -->
+<!-- v209 -->
 <html lang="es">
 <head>
 <script>
@@ -3464,12 +3464,8 @@ function renderEtapa4Cuadros() {
   });
   navHtml += '</div>';
 
-  // Solo cuentan los partidos "reales": ni BYE ni con ambos jugadores por definir
-  var real = cup.matches.filter(function(m){
-    if (m.score === 'BYE') return false;
-    var t1 = !m.p1 || m.p1==='Por definir', t2 = !m.p2 || m.p2==='Por definir';
-    return !(t1 && t2);
-  });
+  // Total del torneo: todos los partidos menos los BYE (que no se juegan)
+  var real = cup.matches.filter(function(m){ return m.score !== 'BYE'; });
   var done = real.filter(function(m){ return m.done; }).length;
   var total = real.length, pend = total - done;
   var pct = total > 0 ? Math.round(done/total*100) : 0;
@@ -3495,25 +3491,15 @@ function renderEtapa4Cuadros() {
   E4_ROUNDS.forEach(function(r){
     var list = byRound[r];
     if (!list || !list.length) return;
-    // Ocultar rondas que todavía no tienen ningún jugador definido
-    var anyNamed = list.some(function(m){
-      return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir');
-    });
-    if (!anyNamed) return;
-
-    // Mostrar solo los partidos que ya tienen al menos un jugador definido.
-    // Los slots todavía vacíos de una ronda futura son ruido en el cuadro.
-    var visibles = list.filter(function(m){
-      if (m.score === 'BYE') return true;
-      return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir');
-    });
-    var realR = visibles.filter(function(m){ return m.score !== 'BYE'; });
+    // v209: se muestra el cuadro COMPLETO, incluidas las rondas futuras con
+    // sus cruces todavía por definir.
+    var realR = list.filter(function(m){ return m.score !== 'BYE'; });
     var playedR = realR.filter(function(m){ return m.done; }).length;
     matchHtml += '<div class="round-group"><div class="round-header">' +
       '<div class="rh-title">' + (E4_ROUND_LABELS[r]||r).toUpperCase() + '</div>' +
       '<div class="rh-count">' + playedR + '/' + realR.length + ' jugados</div></div>';
 
-    visibles.forEach(function(m){
+    list.forEach(function(m){
       if (m.score === 'BYE') {
         var adv = m.winner || (m.p1!=='BYE' ? m.p1 : m.p2);
         matchHtml += '<div class="match-card" style="opacity:.7">' +
@@ -3602,20 +3588,11 @@ function downloadE4CuadroPDF() {
   var byRound = {};
   cup.matches.forEach(function(m){ (byRound[m.round]=byRound[m.round]||[]).push(m); });
 
-  // Solo las rondas que ya tienen algún jugador definido
-  var rounds = E4_ROUNDS.filter(function(r){
-    var l = byRound[r];
-    return l && l.some(function(m){
-      return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir');
-    });
-  });
+  // v209: el PDF muestra el cuadro completo, de la primera ronda a la Final
+  var rounds = E4_ROUNDS.filter(function(r){ return (byRound[r]||[]).length > 0; });
 
   // Avance actual
-  var real = cup.matches.filter(function(m){
-    if (m.score === 'BYE') return false;
-    var t1=!m.p1||m.p1==='Por definir', t2=!m.p2||m.p2==='Por definir';
-    return !(t1&&t2);
-  });
+  var real = cup.matches.filter(function(m){ return m.score !== 'BYE'; });
   var done = real.filter(function(m){ return m.done; }).length;
   var total = real.length, pend = total-done;
   var pct = total>0 ? Math.round(done/total*100) : 0;
@@ -3680,10 +3657,7 @@ function downloadE4CuadroPDF() {
 
   body += '<div class="bracket">';
   rounds.forEach(function(r){
-    var list = (byRound[r]||[]).filter(function(m){
-      if (m.score === 'BYE') return true;
-      return (m.p1 && m.p1!=='Por definir') || (m.p2 && m.p2!=='Por definir');
-    });
+    var list = byRound[r] || [];
     var realR = list.filter(function(m){ return m.score!=='BYE'; });
     var doneR = realR.filter(function(m){ return m.done; }).length;
 
