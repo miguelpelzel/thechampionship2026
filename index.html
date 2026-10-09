@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v213 -->
+<!-- v214 -->
 <html lang="es">
 <head>
 <script>
@@ -3305,10 +3305,12 @@ function rebuildE4Cup(cupKey) {
   var orig = (window.E4_CUPS_ORIG || {})[cupKey];
   var cup = cups[cupKey];
   if (!cup || !orig) return;
-  // Restaurar slots originales (los BYE quedan fijos: son parte del sorteo)
+  // Restaurar slots originales. Los BYE quedan fijos (son parte del sorteo) y
+  // los partidos ya jugados conservan sus nombres: su resultado está atado a
+  // esos dos jugadores.
   cup.matches.forEach(function(m, i){
     var o = orig.matches[i];
-    if (o && o.score !== 'BYE') { m.p1 = o.p1; m.p2 = o.p2; }
+    if (o && o.score !== 'BYE' && !m.done) { m.p1 = o.p1; m.p2 = o.p2; }
   });
   // 1) BYEs, 2) Previa, 3) resto en orden de ronda
   cup.matches.filter(function(m){ return m.score==='BYE' && m.done && m.winner; })
@@ -3320,6 +3322,19 @@ function rebuildE4Cup(cupKey) {
       .forEach(function(m){ propagateE4Cup(cupKey, m); });
   });
 }
+
+// Recalcula los dos cuadros desde cero a partir de los resultados guardados.
+// Se llama antes de dibujar o de generar un PDF: así la vista nunca depende de
+// que la propagación incremental haya corrido bien en todos los caminos
+// (resultados que llegan de Firebase en cualquier orden, ediciones, borrados).
+function e4Recalcular() {
+  var cups = window.E4_CUPS || E4_CUPS;
+  if (!cups) return;
+  Object.keys(cups).forEach(function(ck){
+    try { rebuildE4Cup(ck); } catch(e) {}
+  });
+}
+window.e4Recalcular = e4Recalcular;
 
 // Propagación inicial de BYEs (se ejecuta una vez definidas las funciones)
 (function initE4BYEs() {
@@ -3453,6 +3468,7 @@ function e4MatchCardHtml(m, cupKey) {
 function renderEtapa4Cuadros() {
   var el = document.getElementById('main');
   if (!el) return;
+  e4Recalcular();
   var cups = window.E4_CUPS || E4_CUPS;
   var CUPS_INFO = [
     {key:'e4_catA', label:'Categoría A'},
@@ -3542,6 +3558,7 @@ function e4NavView(tab) {
 function renderEtapa4Partidos() {
   var el = document.getElementById('main');
   if (!el) return;
+  e4Recalcular();
   var cups = window.E4_CUPS || E4_CUPS;
   var rows = [];
   Object.keys(cups).forEach(function(ck){
@@ -3584,6 +3601,7 @@ function renderEtapa4Partidos() {
 
 // ── PDF del cuadro ─────────────────────────────────────────────────────────
 function downloadE4CuadroPDF() {
+  e4Recalcular();
   var cups = window.E4_CUPS || E4_CUPS;
   var cupKey = e4CurrentCup;
   var cup = cups[cupKey];
@@ -3717,6 +3735,7 @@ function downloadE4CuadroPDF() {
 // los de la ronda inicial que siguen pendientes y los de rondas siguientes
 // cuyo cruce ya quedó definido. Sale por Categoría y por ronda.
 function downloadE4PendientesPDF(cupKey) {
+  e4Recalcular();
   var cups = window.E4_CUPS || E4_CUPS;
   // Sin argumento usa la categoría que está abierta; 'all' fuerza las dos.
   var sel = cupKey || e4CurrentCup;
@@ -3739,12 +3758,18 @@ function downloadE4PendientesPDF(cupKey) {
     return !t1 && !t2;                              // los dos jugadores definidos
   };
 
-  var totalGeneral = 0;
+  var totalGeneral = 0, jugadosGeneral = 0, totalCuadro = 0;
   var secciones = [];
 
   CUPS_INFO.forEach(function(ci){
     var cup = cups[ci.key];
     if (!cup) return;
+    // Cuántos resultados hay cargados en esta categoría (sin contar los BYE)
+    cup.matches.forEach(function(m){
+      if (m.score === 'BYE') return;
+      totalCuadro++;
+      if (m.done) jugadosGeneral++;
+    });
     var porRonda = [];
     var totalCup = 0;
     E4_ROUNDS.forEach(function(r){
@@ -3797,7 +3822,8 @@ function downloadE4PendientesPDF(cupKey) {
     '<div class="header-sub">The Championship 2026 · actualizado al ' + now + ' ' + hora + '</div></div>' +
     '<button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div>';
 
-  body += '<div class="resumen"><b>' + totalGeneral + '</b> partidos con ambos jugadores definidos y sin resultado cargado.</div>';
+  body += '<div class="resumen"><b>' + totalGeneral + '</b> partidos con ambos jugadores definidos y sin resultado cargado' +
+    ' · <b>' + jugadosGeneral + '</b> de ' + totalCuadro + ' ya jugados en el cuadro.</div>';
 
   if (!totalGeneral) {
     body += '<div class="vacio">No hay partidos disponibles para jugar en este momento' +
