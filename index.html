@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v211 -->
+<!-- v213 -->
 <html lang="es">
 <head>
 <script>
@@ -3479,7 +3479,8 @@ function renderEtapa4Cuadros() {
   var heroHtml = '<div class="cup-hero">' +
     '<div class="cup-hero-top"><div class="cup-hero-title" style="color:'+accent+'">🎾 ' + cup.label + '</div>' +
     '<div style="display:flex;gap:6px;align-items:center">' +
-    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ PDF del cuadro</button>' +
+    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Cuadro</button>' +
+    '<button onclick="downloadE4PendientesPDF()" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar</button>' +
     '</div></div>' +
     '<div class="progress-track"><div class="progress-fill fill-oro" style="width:'+pct+'%"></div></div>' +
     '<div class="cup-stats-row">' +
@@ -3560,7 +3561,9 @@ function renderEtapa4Partidos() {
   var tabs = '<div class="cup-nav" style="padding:0 .5rem;border-bottom:1px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:space-between;gap:6px">' +
     '<div><button class="cup-tab ' + (filt==='pend'?'active-oro':'') + '" onclick="window._e4PartFilter=\'pend\';renderEtapa4Partidos()">Pendientes (' + pend.length + ')</button>' +
     '<button class="cup-tab ' + (filt==='jug'?'active-oro':'') + '" onclick="window._e4PartFilter=\'jug\';renderEtapa4Partidos()">Jugados (' + jug.length + ')</button></div>' +
-    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;margin-right:4px">⬇ PDF del cuadro</button>' +
+    '<span style="display:flex;gap:5px;margin-right:4px">' +
+    '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Cuadro</button>' +
+    '<button onclick="downloadE4PendientesPDF(\'all\')" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar (A+B)</button></span>' +
     '</div>';
 
   var html = '';
@@ -3705,6 +3708,135 @@ function downloadE4CuadroPDF() {
     esc(cup.label) + ' — Etapa 4</title><style>' + css + '</style></head><body>' + body + '</body></html>';
 
   var win = window.open('', '_blank', 'width=1320,height=860');
+  if (win) { win.document.write(html); win.document.close(); win.focus(); }
+  else showToast('Permitir pop-ups para ver el PDF');
+}
+
+// ── PDF: partidos que ya se pueden jugar ───────────────────────────────────
+// Incluye todo partido con los DOS jugadores definidos y sin resultado cargado:
+// los de la ronda inicial que siguen pendientes y los de rondas siguientes
+// cuyo cruce ya quedó definido. Sale por Categoría y por ronda.
+function downloadE4PendientesPDF(cupKey) {
+  var cups = window.E4_CUPS || E4_CUPS;
+  // Sin argumento usa la categoría que está abierta; 'all' fuerza las dos.
+  var sel = cupKey || e4CurrentCup;
+  var TODAS = [
+    {key:'e4_catA', label:'Categoría A', accent:'#0D4F8B', light:'#EAF3FC'},
+    {key:'e4_catB', label:'Categoría B', accent:'#00694A', light:'#E6F4EF'}
+  ];
+  var CUPS_INFO = (sel === 'all') ? TODAS : TODAS.filter(function(x){ return x.key === sel; });
+  if (!CUPS_INFO.length) CUPS_INFO = TODAS;
+  var unaSola = CUPS_INFO.length === 1;
+
+  var esc = function(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  };
+  var jugable = function(m){
+    if (m.done) return false;                       // ya tiene resultado
+    if (m.score === 'BYE') return false;            // pase directo, no se juega
+    var t1 = !m.p1 || m.p1==='Por definir';
+    var t2 = !m.p2 || m.p2==='Por definir';
+    return !t1 && !t2;                              // los dos jugadores definidos
+  };
+
+  var totalGeneral = 0;
+  var secciones = [];
+
+  CUPS_INFO.forEach(function(ci){
+    var cup = cups[ci.key];
+    if (!cup) return;
+    var porRonda = [];
+    var totalCup = 0;
+    E4_ROUNDS.forEach(function(r){
+      var list = cup.matches.filter(function(m){ return m.round===r && jugable(m); });
+      if (!list.length) return;
+      totalCup += list.length;
+      porRonda.push({ronda:r, list:list});
+    });
+    totalGeneral += totalCup;
+    secciones.push({ci:ci, porRonda:porRonda, total:totalCup});
+  });
+
+  var css = [
+    '*{box-sizing:border-box;margin:0;padding:0;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}',
+    'body{background:#f5f5f5;padding:20px}',
+    '.page{background:white;max-width:900px;margin:0 auto;padding:28px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1)}',
+    '.header{border-bottom:3px solid #0D2B5E;padding-bottom:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}',
+    '.header-title{font-size:20px;font-weight:700;color:#0D2B5E}',
+    '.header-sub{font-size:13px;color:#888;margin-top:3px}',
+    '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600}',
+    '.resumen{font-size:12px;color:#555;margin:10px 0 20px}',
+    '.resumen b{color:#0D2B5E;font-size:14px}',
+    '.cat{margin-bottom:26px;page-break-inside:avoid}',
+    '.cat-title{font-size:15px;font-weight:700;color:white;padding:7px 12px;border-radius:5px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}',
+    '.cat-count{font-size:11px;font-weight:600;opacity:.9}',
+    '.ronda{margin-bottom:14px;page-break-inside:avoid}',
+    '.ronda-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:4px 0 6px;border-bottom:1px solid #e2e6ee;margin-bottom:7px;display:flex;justify-content:space-between}',
+    '.ronda-n{font-weight:600;color:#888}',
+    'table{width:100%;border-collapse:collapse;font-size:12px}',
+    'td{padding:6px 8px;border-bottom:1px solid #f0f2f6;vertical-align:middle}',
+    'tr:last-child td{border-bottom:none}',
+    '.n{width:26px;color:#aab;font-size:10px;text-align:right;padding-right:10px}',
+    '.pl{font-weight:600;color:#1a1a2e}',
+    '.vs{width:28px;text-align:center;color:#9aa7b8;font-size:10px;font-style:italic}',
+    '.seed{display:inline-block;font-size:8px;color:#fff;background:#9aa7b8;border-radius:3px;padding:1px 4px;margin-right:5px;font-weight:700;vertical-align:middle}',
+    '.res{width:130px;border-bottom:1px solid #ccd2dd;height:16px}',
+    '.res-lbl{font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.4px}',
+    '.vacio{font-size:12px;color:#888;font-style:italic;padding:10px 0}',
+    '.pie{margin-top:22px;padding-top:10px;border-top:1px solid #e2e6ee;font-size:10px;color:#aab;text-align:center}',
+    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0;max-width:none;padding:14px}.btn-print{display:none}@page{margin:12mm}}'
+  ].join('\n');
+
+  var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
+  var hora = new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
+
+  var body = '<div class="page">';
+  var tituloCat = unaSola ? ' · ' + CUPS_INFO[0].label : '';
+  body += '<div class="header">' +
+    '<div><div class="header-title">PARTIDOS A JUGAR — ETAPA 4' + esc(tituloCat) + '</div>' +
+    '<div class="header-sub">The Championship 2026 · actualizado al ' + now + ' ' + hora + '</div></div>' +
+    '<button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div>';
+
+  body += '<div class="resumen"><b>' + totalGeneral + '</b> partidos con ambos jugadores definidos y sin resultado cargado.</div>';
+
+  if (!totalGeneral) {
+    body += '<div class="vacio">No hay partidos disponibles para jugar en este momento' +
+      (unaSola ? ' en ' + esc(CUPS_INFO[0].label) : '') + '.</div>';
+  }
+
+  secciones.forEach(function(sec){
+    if (!sec.total) return;
+    var ci = sec.ci;
+    body += '<div class="cat">';
+    if (!unaSola) {
+      body += '<div class="cat-title" style="background:' + ci.accent + '">' +
+        '<span>' + ci.label + '</span><span class="cat-count">' + sec.total + ' partidos</span></div>';
+    }
+
+    sec.porRonda.forEach(function(g){
+      body += '<div class="ronda"><div class="ronda-title" style="color:' + ci.accent + '">' +
+        '<span>' + (E4_ROUND_LABELS[g.ronda]||g.ronda) + '</span>' +
+        '<span class="ronda-n">' + g.list.length + '</span></div><table>';
+      g.list.forEach(function(m, i){
+        var s1 = m.seed1 ? '<span class="seed">' + esc(m.seed1) + '</span>' : '';
+        var s2 = m.seed2 ? '<span class="seed">' + esc(m.seed2) + '</span>' : '';
+        body += '<tr><td class="n">' + (i+1) + '</td>' +
+          '<td class="pl">' + s1 + esc(m.p1) + '</td>' +
+          '<td class="vs">vs</td>' +
+          '<td class="pl">' + s2 + esc(m.p2) + '</td>' +
+          '<td class="res"></td></tr>';
+      });
+      body += '</table></div>';
+    });
+    body += '</div>';
+  });
+
+  body += '<div class="pie">La línea de la derecha es para anotar el resultado.</div></div>';
+
+  var html = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
+    '<title>Partidos a jugar — Etapa 4' + esc(tituloCat) + '</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+
+  var win = window.open('', '_blank', 'width=980,height=860');
   if (win) { win.document.write(html); win.document.close(); win.focus(); }
   else showToast('Permitir pop-ups para ver el PDF');
 }
