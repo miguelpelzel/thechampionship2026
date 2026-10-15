@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v214 -->
+<!-- v215 -->
 <html lang="es">
 <head>
 <script>
@@ -3580,7 +3580,7 @@ function renderEtapa4Partidos() {
     '<button class="cup-tab ' + (filt==='jug'?'active-oro':'') + '" onclick="window._e4PartFilter=\'jug\';renderEtapa4Partidos()">Jugados (' + jug.length + ')</button></div>' +
     '<span style="display:flex;gap:5px;margin-right:4px">' +
     '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Cuadro</button>' +
-    '<button onclick="downloadE4PendientesPDF(\'all\')" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar (A+B)</button></span>' +
+    '<button onclick="downloadE4PendientesPDF(\'all\')" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar</button></span>' +
     '</div>';
 
   var html = '';
@@ -3639,6 +3639,7 @@ function downloadE4CuadroPDF() {
     '.header-title{font-size:20px;font-weight:700;color:#0D2B5E}',
     '.header-sub{font-size:13px;color:#888;margin-top:3px}',
     '.cup-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:700;background:'+accent+';color:white}',
+    '.btn-volver{background:#fff;color:#0D2B5E;border:1.5px solid #0D2B5E;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;margin-left:8px}',
     '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;margin-left:8px}',
     '.stats{display:flex;gap:18px;margin-bottom:6px;font-size:11px;color:#555}',
     '.stats b{color:#0D2B5E;font-size:13px}',
@@ -3661,7 +3662,7 @@ function downloadE4CuadroPDF() {
     '.bye{font-size:9px;color:#aaa;font-style:italic}',
     '.wo{font-size:8px;background:#e65100;color:#fff;border-radius:3px;padding:1px 4px;font-weight:700}',
     '.nj{font-size:8px;background:#9aa7b8;color:#fff;border-radius:3px;padding:1px 4px;font-weight:700}',
-    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0;max-width:none}.btn-print{display:none}@page{size:landscape;margin:8mm}}'
+    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0;max-width:none}.btn-print,.btn-volver{display:none}@page{size:landscape;margin:8mm}}'
   ].join('\n');
 
   var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -3670,7 +3671,8 @@ function downloadE4CuadroPDF() {
   body += '<div class="header">' +
     '<div><div class="header-title">THE CHAMPIONSHIP 2026 — ETAPA 4</div>' +
     '<div class="header-sub">' + esc(cup.label) + ' · actualizado al ' + now + '</div></div>' +
-    '<div><span class="cup-badge">' + (isA?'CATEGORÍA A':'CATEGORÍA B') + '</span>' +
+    '<div style="white-space:nowrap"><span class="cup-badge">' + (isA?'CATEGORÍA A':'CATEGORÍA B') + '</span>' +
+    '<button class="btn-volver" onclick="window.close()">← Volver</button>' +
     '<button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div></div>';
 
   body += '<div class="stats"><div><b>' + done + '</b> jugados</div>' +
@@ -3738,7 +3740,8 @@ function downloadE4PendientesPDF(cupKey) {
   e4Recalcular();
   var cups = window.E4_CUPS || E4_CUPS;
   // Sin argumento usa la categoría que está abierta; 'all' fuerza las dos.
-  var sel = cupKey || e4CurrentCup;
+  // Siempre las dos categorías en un solo PDF: primero la A, después la B.
+  var sel = 'all';
   var TODAS = [
     {key:'e4_catA', label:'Categoría A', accent:'#0D4F8B', light:'#EAF3FC'},
     {key:'e4_catB', label:'Categoría B', accent:'#00694A', light:'#E6F4EF'}
@@ -3789,6 +3792,7 @@ function downloadE4PendientesPDF(cupKey) {
     '.header{border-bottom:3px solid #0D2B5E;padding-bottom:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}',
     '.header-title{font-size:20px;font-weight:700;color:#0D2B5E}',
     '.header-sub{font-size:13px;color:#888;margin-top:3px}',
+    '.btn-volver{background:#fff;color:#0D2B5E;border:1.5px solid #0D2B5E;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600;margin-right:8px}',
     '.btn-print{background:#0D2B5E;color:white;border:none;padding:8px 18px;border-radius:5px;cursor:pointer;font-size:12px;font-weight:600}',
     '.resumen{font-size:12px;color:#555;margin:10px 0 20px}',
     '.resumen b{color:#0D2B5E;font-size:14px}',
@@ -3798,19 +3802,23 @@ function downloadE4PendientesPDF(cupKey) {
     '.ronda{margin-bottom:14px;page-break-inside:avoid}',
     '.ronda-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;padding:4px 0 6px;border-bottom:1px solid #e2e6ee;margin-bottom:7px;display:flex;justify-content:space-between}',
     '.ronda-n{font-weight:600;color:#888}',
-    'table{width:100%;border-collapse:collapse;font-size:12px}',
-    'td{padding:6px 8px;border-bottom:1px solid #f0f2f6;vertical-align:middle}',
+    'table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}',
+    'td{padding:6px 8px;border-bottom:1px solid #f0f2f6;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     'tr:last-child td{border-bottom:none}',
-    '.n{width:26px;color:#aab;font-size:10px;text-align:right;padding-right:10px}',
+    '.n{color:#aab;font-size:10px;text-align:right;padding-right:10px}',
     '.pl{font-weight:600;color:#1a1a2e}',
-    '.vs{width:28px;text-align:center;color:#9aa7b8;font-size:10px;font-style:italic}',
+    '.vs{text-align:center;color:#9aa7b8;font-size:10px;font-style:italic}',
     '.seed{display:inline-block;font-size:8px;color:#fff;background:#9aa7b8;border-radius:3px;padding:1px 4px;margin-right:5px;font-weight:700;vertical-align:middle}',
-    '.res{width:130px;border-bottom:1px solid #ccd2dd;height:16px}',
+    '.res{border-bottom:1px solid #ccd2dd;height:16px}',
     '.res-lbl{font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.4px}',
     '.vacio{font-size:12px;color:#888;font-style:italic;padding:10px 0}',
     '.pie{margin-top:22px;padding-top:10px;border-top:1px solid #e2e6ee;font-size:10px;color:#aab;text-align:center}',
-    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0;max-width:none;padding:14px}.btn-print{display:none}@page{margin:12mm}}'
+    '@media print{body{padding:0;background:white}.page{box-shadow:none;border-radius:0;max-width:none;padding:14px}.btn-print,.btn-volver{display:none}@page{margin:12mm}}'
   ].join('\n');
+
+  // Mismos anchos de columna en todas las rondas y en las dos categorías
+  var COLS = '<colgroup><col style="width:30px"><col style="width:34%"><col style="width:30px">' +
+             '<col style="width:34%"><col style="width:150px"></colgroup>';
 
   var now = new Date().toLocaleDateString('es-UY',{day:'2-digit',month:'2-digit',year:'numeric'});
   var hora = new Date().toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'});
@@ -3820,7 +3828,9 @@ function downloadE4PendientesPDF(cupKey) {
   body += '<div class="header">' +
     '<div><div class="header-title">PARTIDOS A JUGAR — ETAPA 4' + esc(tituloCat) + '</div>' +
     '<div class="header-sub">The Championship 2026 · actualizado al ' + now + ' ' + hora + '</div></div>' +
-    '<button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div>';
+    '<div style="white-space:nowrap">' +
+    '<button class="btn-volver" onclick="window.close()">← Volver</button>' +
+    '<button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button></div></div>';
 
   body += '<div class="resumen"><b>' + totalGeneral + '</b> partidos con ambos jugadores definidos y sin resultado cargado' +
     ' · <b>' + jugadosGeneral + '</b> de ' + totalCuadro + ' ya jugados en el cuadro.</div>';
@@ -3842,7 +3852,7 @@ function downloadE4PendientesPDF(cupKey) {
     sec.porRonda.forEach(function(g){
       body += '<div class="ronda"><div class="ronda-title" style="color:' + ci.accent + '">' +
         '<span>' + (E4_ROUND_LABELS[g.ronda]||g.ronda) + '</span>' +
-        '<span class="ronda-n">' + g.list.length + '</span></div><table>';
+        '<span class="ronda-n">' + g.list.length + '</span></div><table>' + COLS;
       g.list.forEach(function(m, i){
         var s1 = m.seed1 ? '<span class="seed">' + esc(m.seed1) + '</span>' : '';
         var s2 = m.seed2 ? '<span class="seed">' + esc(m.seed2) + '</span>' : '';
