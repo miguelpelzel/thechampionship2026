@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v215 -->
+<!-- v216 -->
 <html lang="es">
 <head>
 <script>
@@ -3252,6 +3252,7 @@ function rebuildE3Cup(cupKey) {
 // Cat. B: 32vos (10 BYEs) → 16vos → 8vos → 4tos → Semis → Final
 // ═══════════════════════════════════════════════════════════════════════════
 var e4CurrentCup = 'e4_catA';
+var e4Round = 'all';   // filtro de instancia en la vista Cuadros
 
 var E4_ROUNDS       = ['Previa','32vos','16vos','8vos','4tos','Semis','Final'];
 var E4_ROUNDS_MAIN  = ['32vos','16vos','8vos','4tos','Semis','Final'];   // sin Previa
@@ -3465,6 +3466,18 @@ function e4MatchCardHtml(m, cupKey) {
   '</div>';
 }
 
+function setE4Round(r) {
+  e4Round = r;
+  window._editingE4Id = null;
+  renderEtapa4Cuadros();
+  // Al elegir una instancia, subir al principio de la lista
+  try {
+    var m = document.getElementById('main');
+    if (m && m.scrollIntoView) m.scrollIntoView({block:'start'});
+    if (window.scrollTo) window.scrollTo(0, 0);
+  } catch(e) {}
+}
+
 function renderEtapa4Cuadros() {
   var el = document.getElementById('main');
   if (!el) return;
@@ -3481,7 +3494,7 @@ function renderEtapa4Cuadros() {
   var navHtml = '<div class="cup-nav" style="overflow-x:auto;white-space:nowrap;padding:0 .5rem;border-bottom:1px solid var(--border);background:var(--white)">';
   CUPS_INFO.forEach(function(ci){
     navHtml += '<button class="cup-tab ' + (ci.key===e4CurrentCup?'active-oro':'') +
-      '" onclick="e4CurrentCup=\'' + ci.key + '\';window._editingE4Id=null;renderEtapa4Cuadros()">' + ci.label + '</button>';
+      '" onclick="e4CurrentCup=\'' + ci.key + '\';e4Round=\'all\';window._editingE4Id=null;renderEtapa4Cuadros()">' + ci.label + '</button>';
   });
   navHtml += '</div>';
 
@@ -3509,8 +3522,30 @@ function renderEtapa4Cuadros() {
   var byRound = {};
   cup.matches.forEach(function(m){ (byRound[m.round]=byRound[m.round]||[]).push(m); });
 
+  // ── Acceso rápido a cada instancia ──────────────────────────────────────
+  var RT_SHORT = {'Previa':'Previa','32vos':'32vos','16vos':'16vos','8vos':'8vos',
+                  '4tos':'4tos','Semis':'Semi','Final':'Final'};
+  var rondasDisp = E4_ROUNDS.filter(function(r){ return (byRound[r]||[]).length > 0; });
+  var pendPorRonda = {};
+  rondasDisp.forEach(function(r){
+    pendPorRonda[r] = (byRound[r]||[]).filter(function(m){
+      return !m.done && m.score !== 'BYE';
+    }).length;
+  });
+  if (rondasDisp.indexOf(e4Round) < 0 && e4Round !== 'all') e4Round = 'all';
+
+  var rtabs = ['all'].concat(rondasDisp).map(function(r){
+    var pr = (r === 'all') ? pend : (pendPorRonda[r] || 0);
+    var badge = pr > 0 ? '<span class="badge-pend">' + pr + '</span>' : '';
+    var lbl = (r === 'all') ? 'Todas' : (RT_SHORT[r] || r);
+    return '<button class="rtab ' + (e4Round === r ? 'active' : '') +
+      '" onclick="setE4Round(\'' + r + '\')">' + lbl + badge + '</button>';
+  }).join('');
+  var roundNav = '<div class="round-nav">' + rtabs + '</div>';
+
   var matchHtml = '';
   E4_ROUNDS.forEach(function(r){
+    if (e4Round !== 'all' && r !== e4Round) return;
     var list = byRound[r];
     if (!list || !list.length) return;
     // v209: se muestra el cuadro COMPLETO, incluidas las rondas futuras con
@@ -3538,7 +3573,8 @@ function renderEtapa4Cuadros() {
     matchHtml += '</div>';
   });
 
-  el.innerHTML = navHtml + heroHtml + '<div class="section-pad">' + matchHtml + '</div>';
+  el.innerHTML = navHtml + heroHtml + roundNav +
+    '<div class="section-pad">' + (matchHtml || '<div class="empty">Sin partidos en esta instancia</div>') + '</div>';
 }
 
 function e4NavView(tab) {
