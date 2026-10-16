@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v219 -->
+<!-- v220 -->
 <html lang="es">
 <head>
 <script>
@@ -4106,14 +4106,20 @@ function pushAvisarNuevos(antes) {
   if (!PUSH_WORKER_URL) return;                 // todavía sin configurar
   if (typeof isAdmin !== 'undefined' && !isAdmin) return;
   var token = pushTokenEnvio();
-  if (!token) return;                           // este dispositivo no envía
+  if (!token) {
+    if (typeof showToast === 'function') showToast('⚠ Falta cargar la clave de envío (botón 🔑)');
+    return;
+  }
 
   var despues = pushCrucesDefinidos();
   var nuevos = Object.keys(despues).filter(function (k) {
     if (!antes[k]) return true;                                  // cruce nuevo
     return antes[k].p1 !== despues[k].p1 || antes[k].p2 !== despues[k].p2;  // corregido
   });
-  if (!nuevos.length) return;
+  if (!nuevos.length) {
+    if (isAdmin && typeof showToast === 'function') showToast('• Ningún cruce nuevo definido');
+    return;
+  }
 
   nuevos.forEach(function (k) {
     var c = despues[k];
@@ -4138,18 +4144,26 @@ function pushEnviarCruce(c, corregido, token) {
       }).catch(function () { return true; })
     : Promise.resolve(true);
 
+  var aviso = function (txt) {
+    if (typeof isAdmin !== 'undefined' && isAdmin && typeof showToast === 'function') showToast(txt);
+  };
+
   seguir.then(function (hayQueEnviar) {
-    if (!hayQueEnviar) return;
-    if (!window.fbSubsDeJugadores) return;
+    if (!hayQueEnviar) {
+      aviso('• ' + firma + ': ya avisado, sin cambios');
+      return;
+    }
+    if (!window.fbSubsDeJugadores) { aviso('⚠ Firebase no está listo'); return; }
     return window.fbSubsDeJugadores([c.p1, c.p2]).then(function (porJugador) {
       var cat = c.cupKey === 'e4_catA' ? 'Categoría A' : 'Categoría B';
       var inst = E4_ROUND_NOMBRE[c.round] || c.round;
       var tareas = [];
+      var sinSub = [];
 
       [[c.p1, c.p2], [c.p2, c.p1]].forEach(function (par) {
         var jugador = par[0], rival = par[1];
         var subs = porJugador[jugador] || [];
-        if (!subs.length) return;
+        if (!subs.length) { sinSub.push(jugador); return; }
         tareas.push(fetch(PUSH_WORKER_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -4167,16 +4181,28 @@ function pushEnviarCruce(c, corregido, token) {
         }).then(function (r) { return r.json().catch(function () { return {}; }); }));
       });
 
-      if (!tareas.length) return;
+      if (!tareas.length) {
+        aviso('⚠ ' + firma + ': sin notificaciones activadas (' + sinSub.join(' y ') + ')');
+        return;
+      }
       return Promise.all(tareas).then(function (res) {
         var n = res.reduce(function (a, r) { return a + (r.enviados || 0); }, 0);
-        if (n > 0) showToast('🔔 Aviso enviado (' + n + ')');
-        if (window.fbMarcarNotificado) {
+        var err = res.filter(function (r) { return r && r.error; }).map(function (r) { return r.error; });
+        if (n > 0) {
+          aviso('🔔 ' + firma + ': aviso enviado (' + n + ')' +
+                (sinSub.length ? ' · sin activar: ' + sinSub.join(', ') : ''));
+        } else {
+          aviso('⚠ ' + firma + ': no se pudo enviar' + (err.length ? ' — ' + err[0] : ''));
+        }
+        if (window.fbMarcarNotificado && n > 0) {
           window.fbMarcarNotificado(clave, { firma: firma, enviados: n, at: Date.now() });
         }
       });
     });
-  }).catch(function (e) { console.warn('aviso:', e); });
+  }).catch(function (e) {
+    console.warn('aviso:', e);
+    aviso('⚠ Error al avisar: ' + (e && e.message ? e.message : e));
+  });
 }
 
 
