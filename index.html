@@ -1,16 +1,14 @@
 <!DOCTYPE html>
-<!-- v216 -->
+<!-- v218 -->
 <html lang="es">
 <head>
 <script>
-// Desregistrar service workers y limpiar caché para forzar actualizaciones
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(function(regs) {
-    regs.forEach(function(reg) { reg.unregister(); });
-  });
+// El service worker ya no cachea nada (ver sw.js), así que la app sigue
+// cargando siempre fresca. Solo limpiamos cachés viejos que pudieran quedar.
+if ('caches' in window) {
   caches.keys().then(function(keys) {
     keys.forEach(function(key) { caches.delete(key); });
-  });
+  }).catch(function(){});
 }
 </script>
   <!-- Google tag (gtag.js) -->
@@ -212,9 +210,36 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
 </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, deleteDoc, onSnapshot, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     const firebaseConfig={apiKey:"AIzaSyAWrYHWre7FcH1Zag-beRx1SoBMr0uncrw",authDomain:"thechampionship2026.firebaseapp.com",projectId:"thechampionship2026",storageBucket:"thechampionship2026.firebasestorage.app",messagingSenderId:"616059146400",appId:"1:616059146400:web:8fd0fd20276ccaed9ef9c5"};
     const fbApp=initializeApp(firebaseConfig);const db=getFirestore(fbApp);
+    // ── Notificaciones push ──────────────────────────────────────────────
+    window.fbGuardarSub=async function(id,datos){
+      try{ await setDoc(doc(db,'push_subs',id),datos); }catch(e){ console.warn('sub:',e); }
+    };
+    window.fbBorrarSub=async function(id){
+      try{ await deleteDoc(doc(db,'push_subs',id)); }catch(e){ console.warn('sub:',e); }
+    };
+    window.fbSubsDeJugadores=async function(nombres){
+      var out={};
+      for(const n of nombres){
+        out[n]=[];
+        try{
+          const q=query(collection(db,'push_subs'),where('player','==',n));
+          const snap=await getDocs(q);
+          snap.forEach(d=>{ const x=d.data(); if(x&&x.endpoint&&x.p256dh&&x.auth) out[n].push(x); });
+        }catch(e){ console.warn('subs:',e); }
+      }
+      return out;
+    };
+    window.fbYaNotificado=async function(clave){
+      try{ const d=await getDoc(doc(db,'push_sent',clave)); return d.exists()?d.data():null; }
+      catch(e){ return null; }
+    };
+    window.fbMarcarNotificado=async function(clave,datos){
+      try{ await setDoc(doc(db,'push_sent',clave),datos); }catch(e){}
+    };
+
     window.fbSaveMatch=async function(cupKey,matchId,score,winner){try{await setDoc(doc(db,'matches',cupKey+'__'+matchId),{cupKey,matchId,score,winner,updatedAt:Date.now()});}catch(e){console.error(e);}};
     // Known Firebase corrections (wrong data that needs to be overridden)
     const FB_CORRECTIONS = {
@@ -907,11 +932,13 @@ function renderHome(){
     <div class="home-screen">
       
       <div class="home-body">
+        <div id="push-card"></div>
         <div class="home-section-label">Seleccioná una etapa</div>
         <div class="stage-grid">${cards}</div>
       </div>
       <div class="home-footer"><div class="home-footer-text" ondblclick="toggleAdmin()">The Championship 2026</div></div>
     </div>`;
+  try { pushRender(); } catch(e) {}
 }
 function toggleAdmin(){isAdmin=!isAdmin;showToast(isAdmin?'⚙ Modo admin activado':'Modo admin desactivado');renderMain();}
 // openStage defined in E2 code below
@@ -3364,10 +3391,12 @@ function saveE4Score(id, cupKey) {
   var woMatch = raw.toUpperCase().replace(/\s+/g,' ').match(/^W\.?O\.?\s*([12])$/);
   if (woMatch) {
     var woNum = parseInt(woMatch[1]);
+    var _snapWO = (typeof pushSnapshot==='function') ? pushSnapshot() : null;
     m.score='WO'; m.done=true; m.winner = woNum===1 ? m.p2 : m.p1;
     window._editingE4Id=null;
     if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, 'WO', m.winner);
     propagateE4Cup(cupKey, m);
+    if (_snapWO) try { pushAvisarNuevos(_snapWO); } catch(e) {}
     showToast('✓ W.O. — '+m.winner); renderEtapa4Cuadros(); return;
   }
   if (!raw || !/\d+-\d+/.test(raw)) { showToast('Formato inválido'); el.focus(); return; }
@@ -3376,10 +3405,12 @@ function saveE4Score(id, cupKey) {
     var ab=s.split('-').map(Number); if(ab[0]>ab[1])p1s++; else p2s++;
   });
   if (isSTB) { var ab2=parts[2].split('-').map(Number); if(ab2[0]>ab2[1])p1s++; else p2s++; }
+  var _snap = (typeof pushSnapshot==='function') ? pushSnapshot() : null;
   m.score=raw; m.done=true; m.winner = p1s>p2s ? m.p1 : m.p2;
   window._editingE4Id=null;
   if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, raw, m.winner);
   propagateE4Cup(cupKey, m);
+  if (_snap) try { pushAvisarNuevos(_snap); } catch(e) {}
   showToast('✓ '+m.winner); renderEtapa4Cuadros();
 }
 
@@ -3396,9 +3427,11 @@ function deleteE4Score(id, cupKey) {
   if (!confirm('¿Borrar el resultado?')) return;
   var m = findE4Match(id, cupKey);
   if (!m) return;
+  var _snapDel = (typeof pushSnapshot==='function') ? pushSnapshot() : null;
   m.score=''; m.done=false; m.winner=null;
   if(window.fbSaveMatch) window.fbSaveMatch(cupKey, id, '__deleted__', '__deleted__');
   rebuildE4Cup(cupKey);
+  if (_snapDel) try { pushAvisarNuevos(_snapDel); } catch(e) {}
   showToast('✓ Resultado borrado'); renderEtapa4Cuadros();
 }
 
@@ -3510,6 +3543,8 @@ function renderEtapa4Cuadros() {
     '<div style="display:flex;gap:6px;align-items:center">' +
     '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Cuadro</button>' +
     '<button onclick="downloadE4PendientesPDF()" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar</button>' +
+    (isAdmin ? '<button onclick="pushPedirToken()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Clave de envío de avisos">🔑</button>' +
+               '<button onclick="pushProbar()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Enviarme una notificación de prueba">🔔</button>' : '') +
     '</div></div>' +
     '<div class="progress-track"><div class="progress-fill fill-oro" style="width:'+pct+'%"></div></div>' +
     '<div class="cup-stats-row">' +
@@ -3767,6 +3802,411 @@ function downloadE4CuadroPDF() {
   if (win) { win.document.write(html); win.document.close(); win.focus(); }
   else showToast('Permitir pop-ups para ver el PDF');
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NOTIFICACIONES PUSH
+// Aviso automático a los dos jugadores cuando queda definido un cruce.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Clave pública VAPID (puede ser pública; la privada vive solo en el Worker)
+var PUSH_VAPID_PUBLIC = 'BJSzKKb2EB5GULhOWcAgz88RiV0Ik-ZnPKS0sWUvDKNkMDeE-mJ5Hxf27y4oeGhOigicmtAHKiRohsF2upI1kRw';
+
+// URL del Worker de Cloudflare. Completar después de publicarlo.
+var PUSH_WORKER_URL = 'https://square-bread-4642championship-push.miguel-pelzel.workers.dev';
+
+var PUSH_APP_URL = '/thechampionship2026/';
+
+// ── Utilidades ─────────────────────────────────────────────────────────────
+function pushSoportado() {
+  return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+}
+
+// En iOS el push solo funciona si la web está agregada a la pantalla de inicio
+function pushInstalada() {
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.navigator.standalone === true) return true;   // Safari iOS
+  } catch (e) {}
+  return false;
+}
+
+function pushEsIOS() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent||'') ||
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function pushJugador() {
+  try { return localStorage.getItem('champ_push_player') || ''; } catch (e) { return ''; }
+}
+function pushSetJugador(n) {
+  try { n ? localStorage.setItem('champ_push_player', n) : localStorage.removeItem('champ_push_player'); } catch (e) {}
+}
+
+function pushB64ToU8(base64) {
+  var pad = '='.repeat((4 - base64.length % 4) % 4);
+  var b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = atob(b64);
+  var out = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function pushB64FromBuf(buf) {
+  var b = new Uint8Array(buf), s = '';
+  for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// ID estable para la suscripción (a partir del endpoint)
+function pushIdDeEndpoint(endpoint) {
+  var h = 0;
+  for (var i = 0; i < endpoint.length; i++) { h = ((h << 5) - h + endpoint.charCodeAt(i)) | 0; }
+  return 'sub_' + Math.abs(h).toString(36) + '_' + endpoint.slice(-18).replace(/[^A-Za-z0-9]/g, '');
+}
+
+// ── Registro del service worker ────────────────────────────────────────────
+var _pushSWReg = null;
+function pushRegistrarSW() {
+  if (!pushSoportado()) return Promise.resolve(null);
+  if (_pushSWReg) return Promise.resolve(_pushSWReg);
+  return navigator.serviceWorker.register('sw.js')
+    .then(function (reg) { _pushSWReg = reg; return navigator.serviceWorker.ready; })
+    .then(function (reg) { _pushSWReg = reg; return reg; })
+    .catch(function (e) { console.warn('SW:', e); return null; });
+}
+
+// ── Alta / baja de notificaciones ──────────────────────────────────────────
+function pushActivar(nombre) {
+  if (!pushSoportado()) { showToast('Este dispositivo no admite notificaciones'); return; }
+  if (!nombre) { showToast('Elegí tu nombre primero'); return; }
+
+  pushRegistrarSW().then(function (reg) {
+    if (!reg) { showToast('No se pudo preparar el servicio'); return; }
+    return Notification.requestPermission().then(function (perm) {
+      if (perm !== 'granted') {
+        showToast('Permiso rechazado. Podés habilitarlo en Ajustes del teléfono.');
+        pushRender();
+        return;
+      }
+      return reg.pushManager.getSubscription().then(function (existente) {
+        if (existente) return existente;
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: pushB64ToU8(PUSH_VAPID_PUBLIC),
+        });
+      }).then(function (sub) {
+        var j = sub.toJSON ? sub.toJSON() : null;
+        var p256dh = (j && j.keys && j.keys.p256dh) || pushB64FromBuf(sub.getKey('p256dh'));
+        var auth   = (j && j.keys && j.keys.auth)   || pushB64FromBuf(sub.getKey('auth'));
+        pushSetJugador(nombre);
+        if (window.fbGuardarSub) {
+          return window.fbGuardarSub(pushIdDeEndpoint(sub.endpoint), {
+            player: nombre, endpoint: sub.endpoint, p256dh: p256dh, auth: auth,
+            ua: (navigator.userAgent || '').slice(0, 120), updatedAt: Date.now(),
+          });
+        }
+      }).then(function () {
+        showToast('✓ Notificaciones activadas');
+        pushRender();
+      });
+    });
+  }).catch(function (e) {
+    console.warn('push:', e);
+    showToast('No se pudo activar: ' + (e && e.message ? e.message : e));
+    pushRender();
+  });
+}
+
+function pushDesactivar() {
+  if (!pushSoportado()) return;
+  pushRegistrarSW().then(function (reg) {
+    if (!reg) return;
+    return reg.pushManager.getSubscription().then(function (sub) {
+      if (!sub) return;
+      var id = pushIdDeEndpoint(sub.endpoint);
+      return sub.unsubscribe().then(function () {
+        if (window.fbBorrarSub) return window.fbBorrarSub(id);
+      });
+    });
+  }).then(function () {
+    pushSetJugador('');
+    showToast('Notificaciones desactivadas');
+    pushRender();
+  }).catch(function () { pushRender(); });
+}
+
+// Safari puede rotar la suscripción: volver a guardarla sin molestar al usuario
+if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', function (ev) {
+    if (ev.data && ev.data.tipo === 'resuscribir') {
+      var n = pushJugador();
+      if (n) pushActivar(n);
+    }
+  });
+}
+
+// ── Tarjeta en la pantalla de inicio ───────────────────────────────────────
+function pushEstado() {
+  if (!pushSoportado()) return 'no-soportado';
+  if (pushEsIOS() && !pushInstalada()) return 'falta-instalar';
+  if (Notification.permission === 'denied') return 'bloqueado';
+  if (Notification.permission !== 'granted') return 'sin-permiso';
+  return pushJugador() ? 'activo' : 'sin-jugador';
+}
+
+function pushCardHtml() {
+  var est = pushEstado();
+  var nombre = pushJugador();
+  var caja = function (inner, borde) {
+    return '<div style="background:var(--white);border:1px solid ' + (borde || 'var(--border)') +
+      ';border-radius:10px;padding:12px 14px;margin-bottom:14px">' + inner + '</div>';
+  };
+  var titulo = '<div style="font-size:.82rem;font-weight:700;color:var(--blue);margin-bottom:5px">🔔 Avisos de tus partidos</div>';
+
+  if (est === 'no-soportado') return '';
+
+  if (est === 'falta-instalar') {
+    return caja(titulo +
+      '<div style="font-size:.75rem;color:var(--muted);line-height:1.55">' +
+      'Para recibir un aviso cuando se defina tu próximo rival, agregá esta web a tu pantalla de inicio:<br>' +
+      '1. Tocá <b>Compartir</b> ' + '↑' + ' abajo en Safari<br>' +
+      '2. Elegí <b>Agregar a pantalla de inicio</b><br>' +
+      '3. Abrila desde el ícono nuevo y volvé acá</div>');
+  }
+
+  if (est === 'bloqueado') {
+    return caja(titulo +
+      '<div style="font-size:.75rem;color:var(--muted);line-height:1.5">Las notificaciones están bloqueadas. ' +
+      'Podés habilitarlas en Ajustes del teléfono, en la sección de esta app.</div>', 'var(--orange)');
+  }
+
+  if (est === 'activo') {
+    return caja(titulo +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+      '<div style="font-size:.78rem;color:var(--text)">Activadas para <b>' + nombre + '</b></div>' +
+      '<div style="display:flex;gap:6px">' +
+      '<button onclick="pushAbrirSelector()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 10px;font-size:.7rem;font-weight:600;cursor:pointer">Cambiar</button>' +
+      '<button onclick="pushDesactivar()" style="background:var(--silver-light);color:var(--red);border:none;border-radius:6px;padding:5px 10px;font-size:.7rem;font-weight:600;cursor:pointer">Desactivar</button>' +
+      '</div></div>', 'var(--green)');
+  }
+
+  // sin-permiso o sin-jugador
+  return caja(titulo +
+    '<div style="font-size:.75rem;color:var(--muted);margin-bottom:9px;line-height:1.5">' +
+    'Recibí un aviso en el teléfono apenas se defina tu próximo rival.</div>' +
+    '<button onclick="pushAbrirSelector()" style="background:var(--blue);color:white;border:none;border-radius:7px;padding:8px 16px;font-size:.78rem;font-weight:600;cursor:pointer">Activar notificaciones</button>');
+}
+
+function pushRender() {
+  var cont = document.getElementById('push-card');
+  if (cont) cont.innerHTML = pushCardHtml();
+}
+
+// ── Selector de jugador ────────────────────────────────────────────────────
+var _pushBusq = '';
+function pushAbrirSelector() { _pushBusq = ''; pushPintarSelector(); }
+function pushCerrarSelector() {
+  var m = document.getElementById('push-modal');
+  if (m) m.remove();
+}
+
+function pushPintarSelector() {
+  pushCerrarSelector();
+  var lista = (typeof PLAYERS_LIST !== 'undefined' ? PLAYERS_LIST : []).slice();
+  // Sumar los jugadores de la Etapa 4 por si alguno no está en la lista base
+  try {
+    var cups = window.E4_CUPS || {};
+    Object.keys(cups).forEach(function (k) {
+      (cups[k].matches || []).forEach(function (m) {
+        [m.p1, m.p2].forEach(function (p) {
+          if (p && p !== 'BYE' && p !== 'Por definir' && lista.indexOf(p) < 0) lista.push(p);
+        });
+      });
+    });
+  } catch (e) {}
+  lista.sort(function (a, b) { return a.localeCompare(b, 'es'); });
+
+  var q = _pushBusq.toLowerCase();
+  var fil = q ? lista.filter(function (n) {
+    return (typeof matchesSearch === 'function') ? matchesSearch(n, q) : n.toLowerCase().indexOf(q) >= 0;
+  }) : lista;
+
+  var filas = fil.map(function (n) {
+    return '<div onclick="pushElegir(\'' + String(n).replace(/'/g, "\\'") + '\')" ' +
+      'style="padding:11px 14px;border-bottom:1px solid var(--border);font-size:.85rem;cursor:pointer">' + n + '</div>';
+  }).join('') || '<div style="padding:18px;text-align:center;color:var(--muted);font-size:.8rem">Sin resultados</div>';
+
+  var html =
+    '<div id="push-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)pushCerrarSelector()">' +
+    '<div style="background:var(--white);width:100%;max-width:520px;max-height:82vh;border-radius:14px 14px 0 0;display:flex;flex-direction:column;overflow:hidden">' +
+    '<div style="padding:14px 16px 10px;border-bottom:1px solid var(--border)">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">' +
+    '<div style="font-size:.92rem;font-weight:700">¿Cuál sos vos?</div>' +
+    '<button onclick="pushCerrarSelector()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;color:var(--muted);line-height:1">✕</button></div>' +
+    '<input id="push-busq" placeholder="Buscar tu nombre..." value="' + _pushBusq.replace(/"/g, '&quot;') + '" ' +
+    'oninput="_pushBusq=this.value;pushPintarSelector();setTimeout(function(){var e=document.getElementById(\'push-busq\');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)" ' +
+    'style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:.85rem;font-family:inherit"/></div>' +
+    '<div style="overflow-y:auto;flex:1">' + filas + '</div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function pushElegir(nombre) {
+  pushCerrarSelector();
+  pushActivar(nombre);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LADO ADMINISTRADOR: detectar cruces definidos y avisar
+// ═══════════════════════════════════════════════════════════════════════════
+
+function pushTokenEnvio() {
+  try { return localStorage.getItem('champ_push_token') || ''; } catch (e) { return ''; }
+}
+function pushPedirToken() {
+  var t = prompt('Clave de envío de notificaciones:', pushTokenEnvio());
+  if (t === null) return false;
+  try { localStorage.setItem('champ_push_token', t.trim()); } catch (e) {}
+  showToast(t.trim() ? '✓ Clave guardada' : 'Clave borrada');
+  return true;
+}
+
+// Cruces con los DOS jugadores definidos y sin jugar
+function pushCrucesDefinidos() {
+  var cups = window.E4_CUPS || (typeof E4_CUPS !== 'undefined' ? E4_CUPS : null);
+  var out = {};
+  if (!cups) return out;
+  Object.keys(cups).forEach(function (ck) {
+    (cups[ck].matches || []).forEach(function (m) {
+      if (m.done || m.score === 'BYE') return;
+      var t1 = !m.p1 || m.p1 === 'Por definir';
+      var t2 = !m.p2 || m.p2 === 'Por definir';
+      if (t1 || t2) return;
+      out[ck + '__' + m.id] = {
+        cupKey: ck, matchId: m.id, round: m.round,
+        p1: m.p1, p2: m.p2,
+        cupLabel: cups[ck].label || ck,
+      };
+    });
+  });
+  return out;
+}
+
+// Toma una foto del estado antes de guardar un resultado
+function pushSnapshot() { return pushCrucesDefinidos(); }
+
+// Compara con la foto previa y avisa de los cruces nuevos
+function pushAvisarNuevos(antes) {
+  if (!PUSH_WORKER_URL) return;                 // todavía sin configurar
+  if (typeof isAdmin !== 'undefined' && !isAdmin) return;
+  var token = pushTokenEnvio();
+  if (!token) return;                           // este dispositivo no envía
+
+  var despues = pushCrucesDefinidos();
+  var nuevos = Object.keys(despues).filter(function (k) {
+    if (!antes[k]) return true;                                  // cruce nuevo
+    return antes[k].p1 !== despues[k].p1 || antes[k].p2 !== despues[k].p2;  // corregido
+  });
+  if (!nuevos.length) return;
+
+  nuevos.forEach(function (k) {
+    var c = despues[k];
+    var corregido = !!antes[k];
+    pushEnviarCruce(c, corregido, token);
+  });
+}
+
+var E4_ROUND_NOMBRE = {
+  'Previa': 'Ronda Previa', '32vos': '32vos de final', '16vos': '16vos de final',
+  '8vos': 'Octavos de final', '4tos': 'Cuartos de final', 'Semis': 'Semifinal', 'Final': 'Final'
+};
+
+function pushEnviarCruce(c, corregido, token) {
+  var clave = c.cupKey + '__' + c.matchId;
+  var firma = c.p1 + ' vs ' + c.p2;
+
+  var seguir = window.fbYaNotificado
+    ? window.fbYaNotificado(clave).then(function (prev) {
+        if (prev && prev.firma === firma) return false;   // ya avisado, mismo cruce
+        return true;
+      }).catch(function () { return true; })
+    : Promise.resolve(true);
+
+  seguir.then(function (hayQueEnviar) {
+    if (!hayQueEnviar) return;
+    if (!window.fbSubsDeJugadores) return;
+    return window.fbSubsDeJugadores([c.p1, c.p2]).then(function (porJugador) {
+      var cat = c.cupKey === 'e4_catA' ? 'Categoría A' : 'Categoría B';
+      var inst = E4_ROUND_NOMBRE[c.round] || c.round;
+      var tareas = [];
+
+      [[c.p1, c.p2], [c.p2, c.p1]].forEach(function (par) {
+        var jugador = par[0], rival = par[1];
+        var subs = porJugador[jugador] || [];
+        if (!subs.length) return;
+        tareas.push(fetch(PUSH_WORKER_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: token,
+            subs: subs.map(function (s) {
+              return { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } };
+            }),
+            title: '🎾 THE CHAMPIONSHIP 2026',
+            body: (corregido ? 'Corrección de cruce. ' : '¡Ya tenés rival! ') +
+                  'Tu próximo partido es contra ' + rival + '.\n' + cat + ' · ' + inst + ' · Etapa 4',
+            url: PUSH_APP_URL,
+            tag: clave + '_' + (jugador === c.p1 ? '1' : '2'),
+          }),
+        }).then(function (r) { return r.json().catch(function () { return {}; }); }));
+      });
+
+      if (!tareas.length) return;
+      return Promise.all(tareas).then(function (res) {
+        var n = res.reduce(function (a, r) { return a + (r.enviados || 0); }, 0);
+        if (n > 0) showToast('🔔 Aviso enviado (' + n + ')');
+        if (window.fbMarcarNotificado) {
+          window.fbMarcarNotificado(clave, { firma: firma, enviados: n, at: Date.now() });
+        }
+      });
+    });
+  }).catch(function (e) { console.warn('aviso:', e); });
+}
+
+// Prueba manual desde el modo admin
+function pushProbar() {
+  if (!PUSH_WORKER_URL) { alert('Falta configurar la URL del Worker en el código.'); return; }
+  var token = pushTokenEnvio();
+  if (!token) { if (!pushPedirToken()) return; token = pushTokenEnvio(); }
+  var n = pushJugador();
+  if (!n) { alert('Primero activá las notificaciones y elegí tu nombre.'); return; }
+  if (!window.fbSubsDeJugadores) { alert('Firebase no está listo.'); return; }
+  window.fbSubsDeJugadores([n]).then(function (m) {
+    var subs = m[n] || [];
+    if (!subs.length) { alert('No hay suscripción guardada para ' + n); return; }
+    return fetch(PUSH_WORKER_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token: token,
+        subs: subs.map(function (s) { return { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }; }),
+        title: '🎾 THE CHAMPIONSHIP 2026',
+        body: 'Prueba de notificación. Si ves esto, funciona.',
+        url: PUSH_APP_URL, tag: 'prueba',
+      }),
+    }).then(function (r) { return r.json(); }).then(function (r) {
+      alert('Enviados: ' + (r.enviados || 0) + ' de ' + (r.total || 0) +
+            (r.results ? '\n' + JSON.stringify(r.results) : ''));
+    });
+  }).catch(function (e) { alert('Error: ' + e); });
+}
+
+// Registrar el service worker al abrir la app
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', function () {
+    if (pushSoportado()) setTimeout(function () { pushRegistrarSW(); }, 1200);
+  });
+}
+
 
 // ── PDF: partidos que ya se pueden jugar ───────────────────────────────────
 // Incluye todo partido con los DOS jugadores definidos y sin resultado cargado:
