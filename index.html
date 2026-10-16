@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v218 -->
+<!-- v219 -->
 <html lang="es">
 <head>
 <script>
@@ -215,7 +215,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     const fbApp=initializeApp(firebaseConfig);const db=getFirestore(fbApp);
     // ── Notificaciones push ──────────────────────────────────────────────
     window.fbGuardarSub=async function(id,datos){
-      try{ await setDoc(doc(db,'push_subs',id),datos); }catch(e){ console.warn('sub:',e); }
+      // El error se propaga a propósito: si no se puede guardar, hay que avisar
+      await setDoc(doc(db,'push_subs',id),datos);
     };
     window.fbBorrarSub=async function(id){
       try{ await deleteDoc(doc(db,'push_subs',id)); }catch(e){ console.warn('sub:',e); }
@@ -224,11 +225,9 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
       var out={};
       for(const n of nombres){
         out[n]=[];
-        try{
-          const q=query(collection(db,'push_subs'),where('player','==',n));
-          const snap=await getDocs(q);
-          snap.forEach(d=>{ const x=d.data(); if(x&&x.endpoint&&x.p256dh&&x.auth) out[n].push(x); });
-        }catch(e){ console.warn('subs:',e); }
+        const q=query(collection(db,'push_subs'),where('player','==',n));
+        const snap=await getDocs(q);
+        snap.forEach(d=>{ const x=d.data(); if(x&&x.endpoint&&x.p256dh&&x.auth) out[n].push(x); });
       }
       return out;
     };
@@ -3544,7 +3543,8 @@ function renderEtapa4Cuadros() {
     '<button onclick="downloadE4CuadroPDF()" style="background:var(--blue);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ Cuadro</button>' +
     '<button onclick="downloadE4PendientesPDF()" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar</button>' +
     (isAdmin ? '<button onclick="pushPedirToken()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Clave de envío de avisos">🔑</button>' +
-               '<button onclick="pushProbar()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Enviarme una notificación de prueba">🔔</button>' : '') +
+               '<button onclick="pushProbar()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Enviarme una notificación de prueba">🔔</button>' +
+               '<button onclick="pushDiagnostico()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Diagnóstico">🩺</button>' : '') +
     '</div></div>' +
     '<div class="progress-track"><div class="progress-fill fill-oro" style="width:'+pct+'%"></div></div>' +
     '<div class="cup-stats-row">' +
@@ -3898,13 +3898,16 @@ function pushActivar(nombre) {
         var j = sub.toJSON ? sub.toJSON() : null;
         var p256dh = (j && j.keys && j.keys.p256dh) || pushB64FromBuf(sub.getKey('p256dh'));
         var auth   = (j && j.keys && j.keys.auth)   || pushB64FromBuf(sub.getKey('auth'));
-        pushSetJugador(nombre);
-        if (window.fbGuardarSub) {
-          return window.fbGuardarSub(pushIdDeEndpoint(sub.endpoint), {
-            player: nombre, endpoint: sub.endpoint, p256dh: p256dh, auth: auth,
-            ua: (navigator.userAgent || '').slice(0, 120), updatedAt: Date.now(),
-          });
+        if (!window.fbGuardarSub) {
+          throw new Error('Firebase todavía no cargó. Esperá unos segundos y probá de nuevo.');
         }
+        return window.fbGuardarSub(pushIdDeEndpoint(sub.endpoint), {
+          player: nombre, endpoint: sub.endpoint, p256dh: p256dh, auth: auth,
+          ua: (navigator.userAgent || '').slice(0, 120), updatedAt: Date.now(),
+        }).then(function () {
+          // Solo damos por activado si el guardado realmente funcionó
+          pushSetJugador(nombre);
+        });
       }).then(function () {
         showToast('✓ Notificaciones activadas');
         pushRender();
@@ -3912,7 +3915,10 @@ function pushActivar(nombre) {
     });
   }).catch(function (e) {
     console.warn('push:', e);
-    showToast('No se pudo activar: ' + (e && e.message ? e.message : e));
+    var msg = (e && (e.message || e.code)) ? (e.code ? e.code + ' — ' + e.message : e.message) : String(e);
+    alert('No se pudo activar las notificaciones.\n\n' + msg +
+          '\n\nSi dice "permission-denied", hay que habilitar las colecciones ' +
+          'push_subs y push_sent en las reglas de Firestore.');
     pushRender();
   });
 }
@@ -4171,6 +4177,64 @@ function pushEnviarCruce(c, corregido, token) {
       });
     });
   }).catch(function (e) { console.warn('aviso:', e); });
+}
+
+
+// Diagnóstico: revisa cada eslabón y dice dónde se corta
+function pushDiagnostico() {
+  var L = [];
+  var fin = function () { alert(L.join('\n')); };
+  L.push('── DIAGNÓSTICO DE NOTIFICACIONES ──', '');
+  L.push('Instalada en pantalla de inicio: ' + (pushInstalada() ? 'SÍ' : 'NO'));
+  L.push('Soporte de push: ' + (pushSoportado() ? 'sí' : 'NO'));
+  L.push('Permiso: ' + (typeof Notification !== 'undefined' ? Notification.permission : '—'));
+  L.push('Jugador elegido: ' + (pushJugador() || '(ninguno)'));
+  L.push('Clave de envío cargada: ' + (pushTokenEnvio() ? 'sí' : 'NO'));
+  L.push('URL del Worker: ' + (PUSH_WORKER_URL || '(sin configurar)'));
+  L.push('Firebase listo: ' + (window.fbGuardarSub ? 'sí' : 'NO — todavía cargando'));
+  L.push('');
+
+  pushRegistrarSW().then(function (reg) {
+    L.push('Service worker: ' + (reg ? 'registrado' : 'NO registrado'));
+    if (!reg) { fin(); return; }
+    return reg.pushManager.getSubscription().then(function (sub) {
+      L.push('Suscripción en este navegador: ' + (sub ? 'sí' : 'NO'));
+      if (sub) L.push('  endpoint …' + sub.endpoint.slice(-22));
+      L.push('');
+      var n = pushJugador();
+      if (!n) { L.push('Falta elegir jugador.'); fin(); return; }
+      if (!window.fbSubsDeJugadores) { L.push('Firebase no está listo.'); fin(); return; }
+      return window.fbSubsDeJugadores([n]).then(function (m) {
+        var subs = m[n] || [];
+        L.push('Guardadas en Firestore para ' + n + ': ' + subs.length);
+        if (!subs.length && sub) {
+          L.push('', 'Hay suscripción en el teléfono pero no en Firestore.',
+                 'Probando guardarla ahora...');
+          var j = sub.toJSON ? sub.toJSON() : null;
+          return window.fbGuardarSub(pushIdDeEndpoint(sub.endpoint), {
+            player: n, endpoint: sub.endpoint,
+            p256dh: (j && j.keys && j.keys.p256dh) || pushB64FromBuf(sub.getKey('p256dh')),
+            auth:   (j && j.keys && j.keys.auth)   || pushB64FromBuf(sub.getKey('auth')),
+            ua: (navigator.userAgent || '').slice(0, 120), updatedAt: Date.now(),
+          }).then(function () {
+            L.push('✓ GUARDADA. Probá el botón 🔔 de nuevo.');
+            fin();
+          }).catch(function (e) {
+            L.push('✗ NO SE PUDO GUARDAR:');
+            L.push('  ' + (e && e.code ? e.code : '') + ' ' + (e && e.message ? e.message : e));
+            L.push('', 'Si dice permission-denied, hay que habilitar las',
+                   'colecciones push_subs y push_sent en las reglas de Firestore.');
+            fin();
+          });
+        }
+        fin();
+      }).catch(function (e) {
+        L.push('✗ Error leyendo Firestore:');
+        L.push('  ' + (e && e.code ? e.code : '') + ' ' + (e && e.message ? e.message : e));
+        fin();
+      });
+    });
+  }).catch(function (e) { L.push('Error: ' + e); fin(); });
 }
 
 // Prueba manual desde el modo admin
