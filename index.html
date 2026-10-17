@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v220 -->
+<!-- v221 -->
 <html lang="es">
 <head>
 <script>
@@ -220,6 +220,12 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
     };
     window.fbBorrarSub=async function(id){
       try{ await deleteDoc(doc(db,'push_subs',id)); }catch(e){ console.warn('sub:',e); }
+    };
+    window.fbTodasLasSubs=async function(){
+      const out=[];
+      const snap=await getDocs(collection(db,'push_subs'));
+      snap.forEach(d=>{ const x=d.data(); if(x&&x.player) out.push(x); });
+      return out;
     };
     window.fbSubsDeJugadores=async function(nombres){
       var out={};
@@ -3544,7 +3550,8 @@ function renderEtapa4Cuadros() {
     '<button onclick="downloadE4PendientesPDF()" style="background:var(--green);color:white;border:none;border-radius:6px;padding:5px 10px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">⬇ A jugar</button>' +
     (isAdmin ? '<button onclick="pushPedirToken()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Clave de envío de avisos">🔑</button>' +
                '<button onclick="pushProbar()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Enviarme una notificación de prueba">🔔</button>' +
-               '<button onclick="pushDiagnostico()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Diagnóstico">🩺</button>' : '') +
+               '<button onclick="pushDiagnostico()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Diagnóstico">🩺</button>' +
+               '<button onclick="pushVerActivados()" style="background:var(--silver-light);color:var(--text);border:none;border-radius:6px;padding:5px 9px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap" title="Quién tiene avisos activados">👥</button>' : '') +
     '</div></div>' +
     '<div class="progress-track"><div class="progress-fill fill-oro" style="width:'+pct+'%"></div></div>' +
     '<div class="cup-stats-row">' +
@@ -4205,6 +4212,95 @@ function pushEnviarCruce(c, corregido, token) {
   });
 }
 
+
+// Quiénes tienen los avisos activados, y a quiénes les falta
+function pushVerActivados() {
+  if (!window.fbTodasLasSubs) { alert('Firebase todavía no cargó.'); return; }
+  window.fbTodasLasSubs().then(function (subs) {
+    // Agrupar por jugador: puede tener más de un dispositivo
+    var porJugador = {};
+    subs.forEach(function (s) {
+      (porJugador[s.player] = porJugador[s.player] || []).push(s);
+    });
+    var activados = Object.keys(porJugador).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+
+    // Jugadores que siguen en carrera en la Etapa 4
+    var enJuego = {};
+    var cups = window.E4_CUPS || {};
+    Object.keys(cups).forEach(function (ck) {
+      var cat = ck === 'e4_catA' ? 'A' : 'B';
+      (cups[ck].matches || []).forEach(function (m) {
+        if (m.done || m.score === 'BYE') return;
+        [m.p1, m.p2].forEach(function (p) {
+          if (p && p !== 'BYE' && p !== 'Por definir') enJuego[p] = cat;
+        });
+      });
+    });
+    var faltan = Object.keys(enJuego).filter(function (n) { return !porJugador[n]; })
+      .sort(function (a, b) { return a.localeCompare(b, 'es'); });
+
+    var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
+    var fecha = function (t) {
+      if (!t) return '';
+      var d = new Date(t);
+      return d.toLocaleDateString('es-UY', {day:'2-digit', month:'2-digit'}) + ' ' +
+             d.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'});
+    };
+
+    var filasAct = activados.map(function (n) {
+      var ds = porJugador[n];
+      var ultima = Math.max.apply(null, ds.map(function (x) { return x.updatedAt || 0; }));
+      var extra = ds.length > 1 ? ' <span style="color:var(--muted);font-size:.66rem">· ' + ds.length + ' dispositivos</span>' : '';
+      return '<div style="padding:8px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+        '<div style="font-size:.82rem">' + esc(n) + extra + '</div>' +
+        '<div style="font-size:.64rem;color:var(--muted);white-space:nowrap">' + fecha(ultima) + '</div></div>';
+    }).join('') || '<div style="padding:16px;text-align:center;color:var(--muted);font-size:.8rem">Todavía nadie</div>';
+
+    var filasFaltan = faltan.map(function (n) {
+      return '<div style="padding:7px 14px;border-bottom:1px solid var(--border);font-size:.8rem;display:flex;justify-content:space-between">' +
+        '<span>' + esc(n) + '</span>' +
+        '<span style="font-size:.64rem;color:var(--muted)">Cat. ' + enJuego[n] + '</span></div>';
+    }).join('') || '<div style="padding:16px;text-align:center;color:var(--green);font-size:.8rem">Están todos ✓</div>';
+
+    var total = Object.keys(enJuego).length;
+    var conAviso = activados.filter(function (n) { return enJuego[n]; }).length;
+    var pct = total > 0 ? Math.round(conAviso / total * 100) : 0;
+
+    var tab = window._pushTabVer || 'si';
+    var html =
+      '<div id="push-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)pushCerrarSelector()">' +
+      '<div style="background:var(--white);width:100%;max-width:520px;max-height:84vh;border-radius:14px 14px 0 0;display:flex;flex-direction:column;overflow:hidden">' +
+      '<div style="padding:13px 16px 0;border-bottom:1px solid var(--border)">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div style="font-size:.92rem;font-weight:700">🔔 Avisos activados</div>' +
+        '<button onclick="pushCerrarSelector()" style="background:none;border:none;font-size:1.25rem;cursor:pointer;color:var(--muted);line-height:1">✕</button></div>' +
+        '<div style="font-size:.72rem;color:var(--muted);margin:3px 0 9px">' +
+          conAviso + ' de ' + total + ' jugadores en carrera (' + pct + '%) · ' + subs.length + ' dispositivos</div>' +
+        '<div style="display:flex;gap:2px">' +
+        '<button onclick="window._pushTabVer=\'si\';pushVerActivados()" class="cup-tab ' + (tab==='si'?'active-oro':'') + '">Activados (' + activados.length + ')</button>' +
+        '<button onclick="window._pushTabVer=\'no\';pushVerActivados()" class="cup-tab ' + (tab==='no'?'active-oro':'') + '">Les falta (' + faltan.length + ')</button>' +
+        '</div></div>' +
+      '<div style="overflow-y:auto;flex:1">' + (tab === 'si' ? filasAct : filasFaltan) + '</div>' +
+      (tab === 'no' && faltan.length ?
+        '<div style="padding:10px 14px;border-top:1px solid var(--border)">' +
+        '<button onclick="pushCopiarFaltan()" style="width:100%;background:var(--blue);color:white;border:none;border-radius:7px;padding:9px;font-size:.78rem;font-weight:600;cursor:pointer">Copiar lista</button></div>' : '') +
+      '</div></div>';
+
+    window._pushFaltan = faltan;
+    pushCerrarSelector();
+    document.body.insertAdjacentHTML('beforeend', html);
+  }).catch(function (e) {
+    alert('No se pudo leer: ' + (e && e.message ? e.message : e));
+  });
+}
+
+function pushCopiarFaltan() {
+  var txt = (window._pushFaltan || []).join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function () { showToast('✓ Copiado'); })
+      .catch(function () { alert(txt); });
+  } else { alert(txt); }
+}
 
 // Diagnóstico: revisa cada eslabón y dice dónde se corta
 function pushDiagnostico() {
