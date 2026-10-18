@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v221 -->
+<!-- v222 -->
 <html lang="es">
 <head>
 <script>
@@ -1033,6 +1033,47 @@ function getAllMatches2026(){
             instancia:inst, p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
         });
       });
+  }
+  // ── Etapa 3 Copas ────────────────────────────────────────────────────────────
+  const cups3 = window.E3_CUPS || (typeof E3_CUPS !== 'undefined' ? E3_CUPS : null);
+  const CKM3 = {
+    'e3_catA_oro':   'Copa Oro · Cat. A · E3',
+    'e3_catA_plata': 'Copa Plata · Cat. A · E3',
+    'e3_catB_oro':   'Copa Oro · Cat. B · E3',
+    'e3_catB_plata': 'Copa Plata · Cat. B · E3',
+  };
+  const RL3 = {'16vos':'16vos de Final','8vos':'Octavos de Final','4tos':'Cuartos de Final',
+               'Semis':'Semifinales','Final':'Final'};
+  if (cups3) {
+    Object.entries(cups3).forEach(([key, cup]) => {
+      (cup.matches||[]).forEach(m => {
+        if (!m.done || isBYE(m.score) || m.score === 'NJ') return;
+        if (!m.p1 || !m.p2 || m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
+        const k = [m.p1, m.p2, m.round, key].join('|');
+        if (seen.has(k)) return; seen.add(k);
+        out.push({year:2026, etapa:3, fase: CKM3[key] || 'Copa E3',
+          instancia: RL3[m.round] || m.round,
+          p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+      });
+    });
+  }
+  // ── Etapa 4 Cuadros ──────────────────────────────────────────────────────────
+  const cups4 = window.E4_CUPS || (typeof E4_CUPS !== 'undefined' ? E4_CUPS : null);
+  const CKM4 = { 'e4_catA': 'Etapa 4 · Cat. A', 'e4_catB': 'Etapa 4 · Cat. B' };
+  const RL4 = {'Previa':'Ronda Previa','32vos':'32vos de Final','16vos':'16vos de Final',
+               '8vos':'Octavos de Final','4tos':'Cuartos de Final','Semis':'Semifinales','Final':'Final'};
+  if (cups4) {
+    Object.entries(cups4).forEach(([key, cup]) => {
+      (cup.matches||[]).forEach(m => {
+        if (!m.done || isBYE(m.score) || m.score === 'NJ') return;
+        if (!m.p1 || !m.p2 || m.p1 === 'Por definir' || m.p2 === 'Por definir') return;
+        const k = [m.p1, m.p2, m.round, key].join('|');
+        if (seen.has(k)) return; seen.add(k);
+        out.push({year:2026, etapa:4, fase: CKM4[key] || 'Etapa 4',
+          instancia: RL4[m.round] || m.round,
+          p1:m.p1, p2:m.p2, score:m.score, winner:m.winner});
+      });
+    });
   }
   return out;
 }
