@@ -1,5 +1,11 @@
 # Notificaciones push — guía de configuración
 
+> **Este archivo está en un repositorio público.** No escribas acá la clave
+> privada VAPID ni el `SEND_TOKEN`. Los valores reales viven únicamente como
+> variables de tipo **Secret** en Cloudflare, y en el llavero de tu teléfono.
+> Si alguna vez quedaron escritos acá, hay que rotarlos: ver "Rotar las claves"
+> al final.
+
 Todo el código ya está en la app. Falta una sola cosa: publicar el Worker que
 entrega las notificaciones, y pegar su dirección en el `index.html`.
 
@@ -15,7 +21,7 @@ solo en Cloudflare — **no la compartas ni la subas a GitHub**.
 ```
 VAPID_PUBLIC   BJSzKKb2EB5GULhOWcAgz88RiV0Ik-ZnPKS0sWUvDKNkMDeE-mJ5Hxf27y4oeGhOigicmtAHKiRohsF2upI1kRw
 
-VAPID_PRIVATE  CL_zpTZLqX0Wzo10VTEa6oqOkAaGEq-wkURrhay5seg
+VAPID_PRIVATE  <<PEGAR_LA_CLAVE_PRIVADA_AQUI>>
 ```
 
 ---
@@ -46,9 +52,9 @@ Agregá estas cuatro. Las dos marcadas como *Secret* elegilas con el tipo
 | Nombre          | Tipo   | Valor |
 |-----------------|--------|-------|
 | `VAPID_PUBLIC`  | Text   | `BJSzKKb2EB5GULhOWcAgz88RiV0Ik-ZnPKS0sWUvDKNkMDeE-mJ5Hxf27y4oeGhOigicmtAHKiRohsF2upI1kRw` |
-| `VAPID_PRIVATE` | Secret | `CL_zpTZLqX0Wzo10VTEa6oqOkAaGEq-wkURrhay5seg` |
+| `VAPID_PRIVATE` | Secret | `<<PEGAR_LA_CLAVE_PRIVADA_AQUI>>` |
 | `VAPID_SUBJECT` | Text   | `mailto:miguel.pelzel@gmail.com` |
-| `SEND_TOKEN`    | Secret | inventá una clave larga, por ejemplo `champ-2026-xK9mP2vR7qL4` |
+| `SEND_TOKEN`    | Secret | inventá una clave larga y guardala en tu gestor de contraseñas |
 
 Guardá y dale **Deploy** de nuevo para que tomen efecto.
 
@@ -172,3 +178,27 @@ tiene que desactivar y volver a activar.
 
 **Nunca llega nada en iPhone pero sí en Android:** casi siempre es que la app
 se abrió desde Safari y no desde el ícono.
+
+---
+
+## Rotar las claves
+
+Si la clave privada VAPID o el `SEND_TOKEN` quedaron expuestos (por ejemplo,
+escritos en un archivo que se subió al repositorio), hay que reemplazarlos.
+Borrarlos del archivo no alcanza: quedan en el historial de Git para siempre.
+
+**Rotar el `SEND_TOKEN`** — 2 minutos, no afecta a ningún jugador:
+
+1. En Cloudflare, Worker → Settings → Variables and Secrets → editar
+   `SEND_TOKEN` con un valor nuevo y largo. Deploy.
+2. En tu teléfono, modo admin → Etapa 4 → Cuadros → 🔑 y pegar el valor nuevo.
+
+**Rotar las claves VAPID** — hace que todos los jugadores tengan que volver a
+activar las notificaciones, así que conviene avisarles antes:
+
+1. Generar un par nuevo (cualquier generador de claves VAPID sirve).
+2. En Cloudflare, reemplazar `VAPID_PUBLIC` y `VAPID_PRIVATE`. Deploy.
+3. En `index.html`, poner la pública nueva en `PUSH_VAPID_PUBLIC`. Subir la versión.
+4. Vaciar la colección `push_subs` en Firestore: las suscripciones viejas
+   quedan firmadas con la clave anterior y ya no sirven.
+5. Avisar a los jugadores que vuelvan a tocar "Activar notificaciones".

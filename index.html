@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v223 -->
+<!-- v224 -->
 <html lang="es">
 <head>
 <script>
@@ -259,6 +259,24 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
   'catA_plata__semi_2':        {score:'6-4 1-6 10-7', winner:'Sebastián Pena'},
   'catA_plata__final_1':       {score:'6-3 6-0', winner:'Martín Fraga'},
 };
+    // El ganador guardado en Firestore puede venir con una tilde de menos
+    // (p. ej. "Agustin Falco" en vez de "Agustín Falco"). Si no coincide
+    // exacto con ninguno de los dos jugadores del cruce, lo comparamos sin
+    // tildes y sin mayúsculas, y lo dejamos con la grafía del cuadro. Sin
+    // esto el ganador no se reconoce y los dos jugadores suman una derrota.
+    const snapW = (w, m) => {
+      if (!w || !m) return w;
+      if (w === m.p1 || w === m.p2) return w;
+      const k = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+                      .replace(/\s+/g, ' ').trim().toLowerCase();
+      const kw = k(w);
+      if (!kw) return w;
+      if (kw === k(m.p1)) return m.p1;
+      if (kw === k(m.p2)) return m.p2;
+      return w;
+    };
+    window.snapWinnerName = snapW;
+
     window.fbListen=function(){
       onSnapshot(collection(db,'matches'),snapshot=>{
         // Apply ALL docs (not just changes) so order doesn't matter
@@ -277,8 +295,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
           // Skip if invalid winner
           if(!score||!score.trim())return;
           if(!winner||winner==='Por definir'||winner==='por definir')return;
-          if(m.score!==score||m.winner!==winner){
-            m.score=score;m.done=true;m.winner=winner;changed=true;
+          if(m.score!==score||m.winner!==snapW(winner,m)){
+            m.score=score;m.done=true;m.winner=snapW(winner,m);changed=true;
           }
         });
         if(changed){
@@ -323,8 +341,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 if(d.score==='__deleted__'){
                   if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
                 } else if(d.score&&d.score.trim()){
-                  if(!m.done||m.score!==d.score||m.winner!==d.winner){
-                    m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+                  if(!m.done||m.score!==d.score||m.winner!==snapW(d.winner,m)){
+                    m.score=d.score;m.done=true;m.winner=snapW(d.winner,m);changed=true;
                   }
                 }
               }
@@ -341,8 +359,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
             if(d.score==='__deleted__'){
               if(m.done){m.score='';m.done=false;m.winner=null;changed=true;}
             } else if(d.score&&d.score.trim()){
-              if(!m.done||m.score!==d.score||m.winner!==d.winner){
-                m.score=d.score;m.done=true;m.winner=d.winner;changed=true;
+              if(!m.done||m.score!==d.score||m.winner!==snapW(d.winner,m)){
+                m.score=d.score;m.done=true;m.winner=snapW(d.winner,m);changed=true;
               }
             }
             // Re-render cuadros if currently viewing them
@@ -363,8 +381,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                 if (d.score==='__deleted__') {
                   if (m.done) { m.score=''; m.done=false; m.winner=null; changed=true; }
                 } else if (d.score && d.score.trim()) {
-                  if (!m.done || m.score!==d.score || m.winner!==d.winner) {
-                    m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
+                  if (!m.done || m.score!==d.score || m.winner!==snapW(d.winner,m)) {
+                    m.score=d.score; m.done=true; m.winner=snapW(d.winner,m); changed=true;
                   }
                 }
               }
@@ -391,8 +409,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
               if (d.score==='__deleted__') {
                 if (m.done) { m.score=''; m.done=false; m.winner=null; changed=true; }
               } else if (d.score && d.score.trim()) {
-                if (!m.done || m.score!==d.score || m.winner!==d.winner) {
-                  m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
+                if (!m.done || m.score!==d.score || m.winner!==snapW(d.winner,m)) {
+                  m.score=d.score; m.done=true; m.winner=snapW(d.winner,m); changed=true;
                 }
               }
             }
@@ -415,8 +433,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                   try { rebuildE4Cup(d.cupKey); } catch(e) {}
                 }
               } else if (d.score && d.score.trim()) {
-                if (!m4.done || m4.score!==d.score || m4.winner!==d.winner) {
-                  m4.score=d.score; m4.done=true; m4.winner=d.winner; changed=true;
+                if (!m4.done || m4.score!==d.score || m4.winner!==snapW(d.winner,m4)) {
+                  m4.score=d.score; m4.done=true; m4.winner=snapW(d.winner,m4); changed=true;
                   if (d.score!=='BYE' && d.score!=='NJ') try { propagateE4Cup(d.cupKey, m4); } catch(e) {}
                 }
               }
@@ -442,8 +460,8 @@ body{font-family:"Inter",sans-serif;background:#f5f6f8;color:#1a1a2e;overscroll-
                   try { rebuildE3Cup(d.cupKey); } catch(e) {}
                 }
               } else if (d.score && d.score.trim()) {
-                if (!m.done || m.score!==d.score || m.winner!==d.winner) {
-                  m.score=d.score; m.done=true; m.winner=d.winner; changed=true;
+                if (!m.done || m.score!==d.score || m.winner!==snapW(d.winner,m)) {
+                  m.score=d.score; m.done=true; m.winner=snapW(d.winner,m); changed=true;
                   if (d.score!=='BYE'&&d.score!=='NJ') try { propagateE3Cup(d.cupKey, m); } catch(e) {}
                 }
               }
@@ -1159,12 +1177,19 @@ function exportarTemporada(anio) {
     });
 
     // ── Hoja: Jugadores ──
+    // Un W.O. no se jugó: no entra en Partidos jugados, ni en Ganados, ni en
+    // Perdidos, ni en el conteo por etapa. Va aparte, en sus propias columnas.
     var st = {};
     todos.forEach(function (m) {
       if (!m.p1 || !m.p2) return;
+      var wo = esWO(m.score);
       [m.p1, m.p2].forEach(function (n) {
-        if (!st[n]) st[n] = {pj:0, g:0, p:0, etapas:{}};
+        if (!st[n]) st[n] = {pj:0, g:0, p:0, woG:0, woP:0, etapas:{}};
         var s = st[n];
+        if (wo) {
+          if (m.winner === n) s.woG++; else s.woP++;
+          return;
+        }
         s.pj++;
         s.etapas[m.etapa] = (s.etapas[m.etapa] || 0) + 1;
         if (!m.winner) return;
@@ -1174,12 +1199,14 @@ function exportarTemporada(anio) {
     var jug = Object.keys(st).sort(function (a, b) {
       return st[b].pj - st[a].pj || st[b].g - st[a].g || a.localeCompare(b, 'es');
     });
-    var filasJ = [['#', 'Jugador', 'Partidos', 'Ganados', 'Perdidos', '% victorias',
+    var filasJ = [['#', 'Jugador', 'Partidos jugados', 'Ganados', 'Perdidos', '% victorias',
+                   'W.O. a favor', 'W.O. en contra',
                    'Etapa 1', 'Etapa 2', 'Etapa 3', 'Etapa 4']];
     jug.forEach(function (n, i) {
       var s = st[n], def = s.g + s.p;
       filasJ.push([i + 1, n, s.pj, s.g, s.p,
                    def > 0 ? Math.round(s.g / def * 100) + '%' : '',
+                   s.woG, s.woP,
                    s.etapas[1] || 0, s.etapas[2] || 0, s.etapas[3] || 0, s.etapas[4] || 0]);
     });
 
@@ -1212,18 +1239,28 @@ function exportarTemporada(anio) {
     if (filasC.length === 1) filasC.push(['', 'Todavía no hay finales definidas', '', '', '']);
 
     // ── Hoja: Resumen ──
-    var porEtapa = {};
-    todos.forEach(function (m) { porEtapa[m.etapa] = (porEtapa[m.etapa] || 0) + 1; });
+    var porEtapa = {}, woEtapa = {}, woTotal = 0;
+    todos.forEach(function (m) {
+      if (esWO(m.score)) { woTotal++; woEtapa[m.etapa] = (woEtapa[m.etapa] || 0) + 1; return; }
+      porEtapa[m.etapa] = (porEtapa[m.etapa] || 0) + 1;
+    });
+    var jugados = todos.length - woTotal;
     var filasR = [['The Championship ' + anio], [],
-                  ['Partidos jugados', todos.length],
-                  ['Jugadores distintos', jug.length], []];
+                  ['Partidos jugados', jugados],
+                  ['Definidos por W.O.', woTotal],
+                  ['Total de cruces', todos.length],
+                  ['Jugadores distintos', jug.length], [],
+                  ['Etapa', 'Jugados', 'W.O.']];
     [1,2,3,4].forEach(function (e) {
-      if (porEtapa[e]) filasR.push(['Partidos Etapa ' + e, porEtapa[e]]);
+      if (porEtapa[e] || woEtapa[e]) filasR.push(['Etapa ' + e, porEtapa[e] || 0, woEtapa[e] || 0]);
     });
     filasR.push([]);
-    filasR.push(['Con más partidos', jug[0] ? jug[0] + ' (' + st[jug[0]].pj + ')' : '']);
+    filasR.push(['Con más partidos jugados', jug[0] ? jug[0] + ' (' + st[jug[0]].pj + ')' : '']);
     var masGana = jug.slice().sort(function (a, b) { return st[b].g - st[a].g; })[0];
     filasR.push(['Con más victorias', masGana ? masGana + ' (' + st[masGana].g + ')' : '']);
+    filasR.push([]);
+    filasR.push(['Los W.O. no cuentan como partidos jugados ni como derrotas.']);
+    filasR.push(['Se informan aparte, en las columnas W.O. de la hoja Jugadores.']);
     filasR.push([]);
     filasR.push(['Generado el', new Date().toLocaleString('es-UY')]);
 
@@ -1233,14 +1270,14 @@ function exportarTemporada(anio) {
       if (anchos) ws['!cols'] = anchos.map(function (w) { return {wch:w}; });
       XLSX.utils.book_append_sheet(wb, ws, nombre);
     };
-    hoja('Resumen',   filasR, [26, 34]);
+    hoja('Resumen',   filasR, [34, 28, 10]);
     hoja('Partidos',  filas,  [7, 24, 20, 24, 24, 18, 24, 24, 6]);
-    hoja('Jugadores', filasJ, [5, 26, 10, 10, 10, 11, 9, 9, 9, 9]);
+    hoja('Jugadores', filasJ, [5, 26, 15, 10, 10, 11, 13, 14, 9, 9, 9, 9]);
     hoja('Campeones', filasC, [7, 24, 24, 24, 20]);
 
     var f = new Date();
     XLSX.writeFile(wb, 'Championship_' + anio + '_' + f.getDate() + '-' + (f.getMonth()+1) + '-' + f.getFullYear() + '.xlsx');
-    showToast('✓ Excel descargado (' + todos.length + ' partidos)');
+    showToast('✓ Excel descargado (' + jugados + ' jugados + ' + woTotal + ' W.O.)');
   }
 
   if (window.XLSX) { armar(); }
